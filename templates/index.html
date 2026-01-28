@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TriAI Compare - Multi-AI Response Comparison</title>
+    <meta name="description" content="Compare responses from OpenAI, Anthropic, Google, and Perplexity AI side-by-side">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/history_video.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">
+                    <span class="logo-tri">Tri</span><span class="logo-ai">AI</span>
+                    <span class="logo-subtitle">Compare</span>
+                </h1>
+                <p class="tagline">Ask once. Compare four perspectives.</p>
+                <div id="currentProjectDisplay" class="current-project-display hidden">
+                    <span class="label">Project:</span>
+                    <span class="value" id="currentProjectName">None</span>
+                    <button id="clearProject" class="clear-project-btn" title="Exit Project">×</button>
+                </div>
+            </div>
+
+            <!-- Navbar -->
+            <div class="navbar">
+                <button id="projectsToggle" class="nav-btn">
+                    <span class="icon">📂</span> Projects
+                </button>
+                <button id="historyToggle" class="nav-btn">
+                    <span class="icon">📜</span> History
+                </button>
+            </div>
+        </header>
+
+        <!-- Background Video -->
+        <!-- Background Video Container -->
+        <div class="bg-video-container">
+            <!-- Idle State (Low Energy) -->
+            <video id="bgVideo" class="video-layer active" autoplay muted loop playsinline
+                poster="{{ url_for('static', filename='img/poster.jpg') }}">
+                <source src="{{ url_for('static', filename='videos/backround_main.mp4') }}" type="video/mp4">
+            </video>
+
+            <!-- Processing State (High Energy) -->
+            <video id="processingVideo" class="video-layer" muted loop playsinline>
+                <source src="{{ url_for('static', filename='videos/processing_gold_final.mp4') }}" type="video/mp4">
+            </video>
+        </div>
+
+        <!-- Projects Sidebar -->
+        <aside id="projectsSidebar" class="sidebar left-sidebar">
+            <div class="sidebar-header">
+                <h2 class="sidebar-title">Projects</h2>
+                <button id="closeProjects" class="close-sidebar">×</button>
+            </div>
+            <div class="projects-content">
+                <div class="create-project-form">
+                    <input type="text" id="newProjectInput" placeholder="New Project Name...">
+                    <button id="createProjectBtn">+</button>
+                </div>
+                <div id="projectsList" class="projects-list">
+                    <!-- Project items will be injected here -->
+                    <div class="loading-text">Loading projects...</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- History Sidebar -->
+        <aside id="historySidebar" class="sidebar right-sidebar">
+            <div class="sidebar-header">
+                <h2 class="sidebar-title">History</h2>
+                <button id="closeHistory" class="close-sidebar">×</button>
+            </div>
+            <div id="historyList" class="history-list">
+                <!-- History items will be injected here -->
+                <div class="loading-history">Loading...</div>
+            </div>
+        </aside>
+
+        <!-- Input Section -->
+        <section class="input-section">
+            <div class="input-container">
+                <textarea id="questionInput"
+                    placeholder="Enter your question here... (e.g., 'Explain quantum computing in simple terms')"
+                    rows="4"></textarea>
+                <div class="file-upload-area" id="fileUploadArea">
+                    <input type="file" id="fileInput" hidden multiple
+                        accept=".txt,.pdf,.md,.csv,.json,.py,.js,.html,.css,.png,.jpg,.jpeg,.webp">
+                    <div class="upload-placeholder">
+                        <span class="upload-icon">📁</span>
+                        <span class="upload-text">Drag file or click to upload context (PDF, Img, Code)</span>
+                    </div>
+                    <div class="file-preview hidden" id="filePreview">
+                        <span class="file-name">example.pdf</span>
+                        <button class="remove-file">×</button>
+                    </div>
+                </div>
+
+                <div class="input-actions">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="vaultToggle">
+                        <span class="slider round"></span>
+                        <span class="toggle-label">Vault Context</span>
+                    </label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="citationToggle">
+                        <span class="slider round"></span>
+                        <span class="toggle-label">Citations</span>
+                    </label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="thoughtToggle">
+                        <span class="slider round"></span>
+                        <span class="toggle-label">Thoughts</span>
+                    </label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="podcastToggle">
+                        <span class="slider round"></span>
+                        <span class="toggle-label">Podcast Mode</span>
+                    </label>
+                    <button id="micBtn" class="icon-button" title="Voice Input">
+                        🎤
+                    </button>
+                    <button id="askButton" class="ask-button">
+                        <span class="button-text">Ask All AIs</span>
+                        <span class="button-icon">→</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Mermaid for Charts -->
+        <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+        <script>mermaid.initialize({ startOnLoad: false, theme: 'dark' });</script>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="loading-state hidden">
+            <div class="loading-spinner"></div>
+            <p id="loadingStatusText">Querying models...</p>
+        </div>
+
+        <!-- Consensus Section -->
+        <section id="consensusSection" class="consensus-section hidden">
+            <div class="consensus-card">
+                <h3>🤖 AI Consensus Analysis</h3>
+                <div id="consensusContent" class="consensus-content">
+                    Loading analysis...
+                </div>
+                <div class="consensus-actions">
+                    <button id="listenBtn" class="action-btn" title="Read Aloud">
+                        <span class="icon">🔊</span> Listen
+                    </button>
+                    <button id="obsidianBtn" class="action-btn" title="Save to Obsidian Vault">
+                        <span class="icon">💾</span> Save to Vault
+                    </button>
+                    <button id="exportBtn" class="action-btn" title="Download Markdown Report">
+                        <span class="icon">⬇️</span> Export Report
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Grid -->
+        <section id="resultsSection" class="results-section hidden">
+            <div class="results-grid">
+                <!-- OpenAI Response -->
+                <div class="ai-card" data-ai="openai">
+                    <div class="ai-header">
+                        <div class="ai-info">
+                            <h2 class="ai-name">OpenAI</h2>
+                            <span class="ai-model" id="openai-model">GPT-4o</span>
+                        </div>
+                        <div class="ai-meta">
+                            <span class="cost-tag" id="openai-cost">$0.000</span>
+                            <span class="response-time" id="openai-time">-- s</span>
+                            <button class="copy-button" data-target="openai">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path
+                                        d="M13.5 5.5H6.5C5.67157 5.5 5 6.17157 5 7V14C5 14.8284 5.67157 15.5 6.5 15.5H13.5C14.3284 15.5 15 14.8284 15 14V7C15 6.17157 14.3284 5.5 13.5 5.5Z"
+                                        stroke="currentColor" stroke-width="1.5" />
+                                    <path
+                                        d="M3 10.5H2.5C1.67157 10.5 1 9.82843 1 9V2C1 1.17157 1.67157 0.5 2.5 0.5H9.5C10.3284 0.5 11 1.17157 11 2V2.5"
+                                        stroke="currentColor" stroke-width="1.5" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Thoughts container (hidden by default) -->
+                    <div id="openai-thought" class="thought-container hidden">
+                        <details>
+                            <summary>👁️ View Reasoning Trace</summary>
+                            <div class="thought-content"></div>
+                        </details>
+                    </div>
+                    <div class="ai-response">
+                        <div id="openai-response" class="response-text">Waiting for response...</div>
+                    </div>
+                    <div class="ai-status" id="openai-status"></div>
+                </div>
+
+                <!-- Anthropic Response -->
+                <div class="ai-card" data-ai="anthropic">
+                    <div class="ai-header">
+                        <div class="ai-info">
+                            <h2 class="ai-name">Anthropic</h2>
+                            <span class="ai-model" id="anthropic-model">Claude Sonnet 4</span>
+                        </div>
+                        <div class="ai-meta">
+                            <span class="cost-tag" id="anthropic-cost">$0.000</span>
+                            <span class="response-time" id="anthropic-time">-- s</span>
+                            <button class="copy-button" data-target="anthropic">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path
+                                        d="M13.5 5.5H6.5C5.67157 5.5 5 6.17157 5 7V14C5 14.8284 5.67157 15.5 6.5 15.5H13.5C14.3284 15.5 15 14.8284 15 14V7C15 6.17157 14.3284 5.5 13.5 5.5Z"
+                                        stroke="currentColor" stroke-width="1.5" />
+                                    <path
+                                        d="M3 10.5H2.5C1.67157 10.5 1 9.82843 1 9V2C1 1.17157 1.67157 0.5 2.5 0.5H9.5C10.3284 0.5 11 1.17157 11 2V2.5"
+                                        stroke="currentColor" stroke-width="1.5" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Thoughts container (hidden by default) -->
+                    <div id="anthropic-thought" class="thought-container hidden">
+                        <details>
+                            <summary>👁️ View Reasoning Trace</summary>
+                            <div class="thought-content"></div>
+                        </details>
+                    </div>
+                    <div class="ai-response">
+                        <div id="anthropic-response" class="response-text">Waiting for response...</div>
+                    </div>
+                    <div class="ai-status" id="anthropic-status"></div>
+                </div>
+
+                <!-- Google Response -->
+                <div class="ai-card" data-ai="google">
+                    <div class="ai-header">
+                        <div class="ai-info">
+                            <h2 class="ai-name">Google</h2>
+                            <span class="ai-model" id="google-model">Gemini 2.5</span>
+                        </div>
+                        <div class="ai-meta">
+                            <span class="cost-tag" id="google-cost">$0.000</span>
+                            <span class="response-time" id="google-time">-- s</span>
+                            <button class="copy-button" data-target="google">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path
+                                        d="M13.5 5.5H6.5C5.67157 5.5 5 6.17157 5 7V14C5 14.8284 5.67157 15.5 6.5 15.5H13.5C14.3284 15.5 15 14.8284 15 14V7C15 6.17157 14.3284 5.5 13.5 5.5Z"
+                                        stroke="currentColor" stroke-width="1.5" />
+                                    <path
+                                        d="M3 10.5H2.5C1.67157 10.5 1 9.82843 1 9V2C1 1.17157 1.67157 0.5 2.5 0.5H9.5C10.3284 0.5 11 1.17157 11 2V2.5"
+                                        stroke="currentColor" stroke-width="1.5" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Thoughts container (hidden by default) -->
+                    <div id="google-thought" class="thought-container hidden">
+                        <details>
+                            <summary>👁️ View Reasoning Trace</summary>
+                            <div class="thought-content"></div>
+                        </details>
+                    </div>
+                    <div class="ai-response">
+                        <div id="google-response" class="response-text">Waiting for response...</div>
+                    </div>
+                    <div class="ai-status" id="google-status"></div>
+                </div>
+
+                <!-- Perplexity Response -->
+                <div class="ai-card" data-ai="perplexity">
+                    <div class="ai-header">
+                        <div class="ai-info">
+                            <h2 class="ai-name">Perplexity</h2>
+                            <span class="ai-model" id="perplexity-model">Sonar</span>
+                        </div>
+                        <div class="ai-meta">
+                            <span class="cost-tag" id="perplexity-cost">$0.000</span>
+                            <span class="response-time" id="perplexity-time">-- s</span>
+                            <button class="copy-button" data-target="perplexity">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path
+                                        d="M13.5 5.5H6.5C5.67157 5.5 5 6.17157 5 7V14C5 14.8284 5.67157 15.5 6.5 15.5H13.5C14.3284 15.5 15 14.8284 15 14V7C15 6.17157 14.3284 5.5 13.5 5.5Z"
+                                        stroke="currentColor" stroke-width="1.5" />
+                                    <path
+                                        d="M3 10.5H2.5C1.67157 10.5 1 9.82843 1 9V2C1 1.17157 1.67157 0.5 2.5 0.5H9.5C10.3284 0.5 11 1.17157 11 2V2.5"
+                                        stroke="currentColor" stroke-width="1.5" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Thoughts container (hidden by default) -->
+                    <div id="perplexity-thought" class="thought-container hidden">
+                        <details>
+                            <summary>👁️ View Reasoning Trace</summary>
+                            <div class="thought-content"></div>
+                        </details>
+                    </div>
+                    <div class="ai-response">
+                        <div id="perplexity-response" class="response-text">Waiting for response...</div>
+                    </div>
+                    <div class="ai-status" id="perplexity-status"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+
+</html>

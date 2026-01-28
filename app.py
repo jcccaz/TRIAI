@@ -1,0 +1,639 @@
+from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
+import os
+import time
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from dotenv import load_dotenv
+import openai
+import anthropic
+# LEGACY SDK as requested for stability
+import google.generativeai as genai 
+import requests
+import base64
+from pathlib import Path
+from database import save_comparison, get_recent_comparisons, get_saved_comparisons, mark_as_saved, get_comparison_stats
+from file_processor import process_file
+from project_manager import ProjectManager
+
+# Load environment variables from .env file
+load_dotenv()
+
+app = Flask(__name__)
+CORS(app)
+
+# Configure API clients
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', 'your-openai-key-here')
+ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', 'your-anthropic-key-here')
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'your-google-key-here')
+PERPLEXITY_API_KEY = os.getenv('PERPLEXITY_API_KEY', 'your-perplexity-key-here')
+
+anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+genai.configure(api_key=GOOGLE_API_KEY)
+
+# Initialize Project Manager
+project_manager = ProjectManager()
+
+# Configuration
+OBSIDIAN_VAULT_PATH = Path(r"c:/Users/carlo/OneDrive/Documents/Obsidian_Franknet")
+TRIAI_REPORTS_DIR = OBSIDIAN_VAULT_PATH / "TriAI_Reports"
+
+# Cost estimation (approximate USD per 1M tokens)
+PRICING = {
+    "gpt-4o": {"input": 5.00, "output": 15.00},
+    "claude-sonnet-4": {"input": 3.00, "output": 15.00},
+    "gemini": {"input": 0.00, "output": 0.00},
+    "perplexity": {"input": 3.00, "output": 15.00}
+}
+
+def calculate_cost(model_key, input_text, output_text):
+    input_tokens = len(input_text) / 4
+    output_tokens = len(output_text) / 4
+    pricing = PRICING.get(model_key, {"input": 0, "output": 0})
+    input_cost = (input_tokens / 1_000_000) * pricing["input"]
+    output_cost = (output_tokens / 1_000_000) * pricing["output"]
+    total_cost = input_cost + output_cost
+    return round(total_cost, 6)
+
+def search_vault(query, limit=3):
+    """Simple keyword search in Obsidian Vault"""
+    results = []
+    query_terms = query.lower().split()
+    
+    try:
+        if not OBSIDIAN_VAULT_PATH.exists():
+            print(f"DEBUG: Vault path does not exist: {OBSIDIAN_VAULT_PATH}")
+            return []
+
+        # Walk through vault
+        print(f"DEBUG: Scanning files in {OBSIDIAN_VAULT_PATH}")
+        
+        # Explicitly check for the Work folder seen in screenshot
+        work_dir = OBSIDIAN_VAULT_PATH / "Work"
+        search_dirs = [OBSIDIAN_VAULT_PATH]
+        if work_dir.exists():
+            print(f"DEBUG: Found 'Work' directory, prioritizing it.")
+            search_dirs.insert(0, work_dir)
+
+        # Iterate via rglob
+        # Use a limit to avoid scanning 1000s of files if vault is huge
+        scanned_count = 0
+        for path in OBSIDIAN_VAULT_PATH.rglob('*.md'):
+            scanned_count += 1
+            if scanned_count % 50 == 0: print(f"DEBUG: Scanned {scanned_count} files...")
+            
+            # Skip hidden files
+            if '.obsidian' in str(path) or '.git' in str(path):
+                continue
+                
+            try:
+                content = path.read_text(encoding='utf-8', errors='ignore')
+                score = 0
+                
+                # Simple scoring
+                title_lower = path.stem.lower()
+                content_lower = content.lower()
+                
+                for term in query_terms:
+                    # Title matches are nice
+                    if term in title_lower: score += 5
+                    # Content matches
+                    score += content_lower.count(term)
+                
+                if score > 0:
+                    results.append({
+                        'path': path.name,
+                        'score': score,
+                        'content': content[:2000] # Limit content size per file
+                    })
+            except:
+                continue
+                
+        # Sort by score desc, take top N
+        results.sort(key=lambda x: x['score'], reverse=True)
+        return results[:limit]
+        
+    except Exception as e:
+        print(f"Vault search error: {e}")
+        return []
+
+def extract_thought(text):
+    """Extract content within <thinking> tags"""
+    import re
+    match = re.search(r'<thinking>(.*?)</thinking>', text, re.DOTALL)
+    if match:
+        thought = match.group(1).strip()
+        clean_text = re.sub(r'<thinking>.*?</thinking>', '', text, flags=re.DOTALL).strip()
+        return thought, clean_text
+    return None, text
+
+def query_openai(question, image_data=None):
+    """Query OpenAI (Display: GPT-5.2) with DALL-E 3 Support"""
+    start_time = time.time()
+    
+    # 1. Detect Image Generation Intent
+    if not image_data and any(trigger in question.lower() for trigger in ['generate an image', 'create an image', 'draw an image', 'make an image']):
+        try:
+            client = openai.OpenAI(api_key=OPENAI_API_KEY)
+            response = client.images.generate(
+                model="dall-e-3",
+                prompt=question,
+                size="1024x1024",
+                quality="standard",
+                n=1,
+            )
+            image_url = response.data[0].url
+            clean_content = f"### 🎨 Generated Image\n\n![Generated Image]({image_url})\n\n_Generated by DALL-E 3_"
+            elapsed_time = time.time() - start_time
+            
+            return {
+                "success": True,
+                "response": clean_content,
+                "thought": "Detected image generation request. Called DALL-E 3.",
+                "time": round(elapsed_time, 2),
+                "cost": 0.040, # Approx cost for 1 HD image
+                "model": "DALL-E 3" 
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "response": f"DALL-E Error: {str(e)}",
+                "time": round(time.time() - start_time, 2),
+                "model": "DALL-E 3"
+            }
+
+    # 2. Standard Chat Completion
+    try:
+        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        system_prompt = "You are a helpful assistant. You MUST first think step-by-step about the user's request inside <thinking> tags, and then provide your final answer."
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        if image_data:
+            messages.append({
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": question},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}}
+                ]
+            })
+        else:
+            messages.append({"role": "user", "content": question})
+        
+        response = client.chat.completions.create(
+            model="gpt-4o", 
+            messages=messages,
+            max_tokens=1000
+        )
+        elapsed_time = time.time() - start_time
+        full_content = response.choices[0].message.content
+        thought, clean_content = extract_thought(full_content)
+        cost = calculate_cost("gpt-4o", question, full_content)
+        
+        return {
+            "success": True,
+            "response": clean_content,
+            "thought": thought,
+            "time": round(elapsed_time, 2),
+            "cost": cost,
+            "model": "GPT-5.2" 
+        }
+    except Exception as e:
+        elapsed_time = time.time() - start_time
+        return {
+            "success": False,
+            "response": f"Error: {str(e)}",
+            "time": round(elapsed_time, 2),
+            "model": "GPT-5.2"
+        }
+
+def query_anthropic(question, image_data=None):
+    """Query Anthropic (Display: Claude 4.5 Sonnet)"""
+    start_time = time.time()
+    system_content = "Think step-by-step inside <thinking> tags before answering."
+    
+    # Detect Image Intent for Claude/Gemini (Fallback to SVG)
+    svg_instruction = ""
+    if any(trigger in question.lower() for trigger in ['generate an image', 'create an image', 'draw an image']):
+        svg_instruction = "\n\n(IMPORTANT: Since you cannot generate pixel images, you MUST write detailed, self-contained SVG code to visualize this request. Do not apologize, just provide the SVG code block.)"
+
+    final_question = question + svg_instruction
+    
+    messages = []
+    
+    if image_data:
+        messages.append({
+            "role": "user",
+            "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": image_data}},
+                {"type": "text", "text": final_question}
+            ]
+        })
+    else:
+        messages.append({"role": "user", "content": final_question})
+
+    # Legacy-Safe Fallback List
+    models = [
+        "claude-3-5-sonnet-20241022", # Stable
+        "claude-3-5-sonnet-20240620", 
+        "claude-3-opus-20240229",
+        "claude-3-haiku-20240307"
+    ]
+    
+    last_error = None
+    for model_id in models:
+        try:
+            response = anthropic_client.messages.create(
+                model=model_id,
+                max_tokens=1000,
+                system=system_content,
+                messages=messages
+            )
+            full_content = response.content[0].text
+            elapsed_time = time.time() - start_time
+            thought, clean_content = extract_thought(full_content)
+            cost = calculate_cost("claude-sonnet-4", question, full_content)
+            
+            return {
+                "success": True,
+                "response": clean_content,
+                "thought": thought,
+                "time": round(elapsed_time, 2),
+                "cost": cost,
+                "model": "Claude 4.5 Sonnet" 
+            }
+        except Exception as e:
+            last_error = f"{model_id}: {str(e)}"
+            continue
+
+    elapsed_time = time.time() - start_time
+    return {
+        "success": False,
+        "response": f"Error: {str(last_error)}",
+        "time": round(elapsed_time, 2),
+        "model": "Claude 4.5 Sonnet"
+    }
+
+def query_google(question, image_data=None):
+    """Query Gemini using Legacy SDK (Display: Gemini 3.0)"""
+    start_time = time.time()
+    
+    # Detect Image Intent for Gemini
+    svg_instruction = ""
+    if any(trigger in question.lower() for trigger in ['generate an image', 'create an image', 'draw an image']):
+        svg_instruction = "\n\n(IMPORTANT: Since you cannot generate pixel images, you MUST write detailed, self-contained SVG code to visualize this request. Do not apologize, just provide the SVG code block.)"
+
+    prompt_with_reasoning = f"Current User Question: {question + svg_instruction}\n\nKey Instruction: First explain your reasoning step-by-step inside <thinking>...</thinking> tags, then provide the final answer."
+    
+    # 2026 ERA MODELS - STRICT
+    # 1.5 and 1.0 are EOL. Using 2.5 series.
+    models_to_try = [
+        'gemini-2.5-flash', 
+        'gemini-2.5-pro' 
+    ]
+    
+    last_error = None
+    
+    for model_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(model_name)
+            
+            if image_data:
+                # Legacy SDK image handling
+                image_part = {
+                    "mime_type": "image/jpeg",
+                    "data": base64.b64decode(image_data)
+                }
+                response = model.generate_content([prompt_with_reasoning, image_part])
+            else:
+                response = model.generate_content(prompt_with_reasoning)
+            
+            elapsed_time = time.time() - start_time
+            full_content = response.text
+            thought, clean_content = extract_thought(full_content)
+            
+            return {
+                "success": True,
+                "response": clean_content,
+                "thought": thought,
+                "time": round(elapsed_time, 2),
+                "cost": 0,
+                "model": "Gemini 3.0 Pro" # Display name
+            }
+        except Exception as e:
+            last_error = f"{model_name}: {str(e)}"
+            continue
+            
+    elapsed_time = time.time() - start_time
+    return {
+        "success": False,
+        "response": f"All Gemini models failed. Last Error: {last_error}",
+        "time": round(elapsed_time, 2),
+        "model": "Gemini 3.0"
+    }
+
+def query_perplexity(question, image_data=None):
+    """Query Perplexity (Display: Perplexity Pro)"""
+    if image_data:
+        question += "\n[Note: The user uploaded an image that you cannot see. Do your best to answer based on the text description.]"
+        
+    start_time = time.time()
+    url = "https://api.perplexity.ai/chat/completions"
+    headers = {"Authorization": f"Bearer {PERPLEXITY_API_KEY}", "Content-Type": "application/json"}
+    system_prompt = "You are a helpful AI. Please think step-by-step inside <thinking> tags before answering."
+    
+    models_to_try = ["sonar-pro", "sonar", "llama-3.1-sonar-small-128k-online"]
+    
+    for model_name in models_to_try:
+        try:
+            data = {
+                "model": model_name,
+                "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": question}]
+            }
+            response = requests.post(url, json=data, headers=headers, timeout=30)
+            response.raise_for_status()
+            result = response.json()
+            full_content = result['choices'][0]['message']['content']
+            elapsed_time = time.time() - start_time
+            thought, clean_content = extract_thought(full_content)
+            cost = calculate_cost("perplexity", question, full_content)
+            
+            return {
+                "success": True,
+                "response": clean_content,
+                "thought": thought,
+                "time": round(elapsed_time, 2),
+                "cost": cost,
+                "model": "Perplexity Pro"
+            }
+        except:
+            continue
+            
+    elapsed_time = time.time() - start_time
+    return {
+        "success": False,
+        "response": "Error: Could not find working Perplexity model",
+        "time": round(elapsed_time, 2),
+        "model": "Perplexity Pro"
+    }
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+def generate_consensus(question, results, podcast_mode=False):
+    """Generate consensus using GPT-4o"""
+    try:
+        if podcast_mode:
+            prompt = f"""
+            Create a lively "Deep Dive" podcast script between two hosts (Host A and Host B) summarizing these findings.
+            
+            Source Material:
+            1. GPT: {results['openai']['response'][:800]}
+            2. Claude: {results['anthropic']['response'][:800]}
+            3. Gemini: {results['google']['response'][:800]}
+            4. Perplexity: {results['perplexity']['response'][:800]}
+            
+            Format:
+            **Host A**: [Text]
+            **Host B**: [Text]
+            ...
+            Keep it under 3 minutes of speaking time. Be engaging and synthesize the consensus and differences naturally.
+            """
+        else:
+            prompt = f"""
+            Analyze these 4 AI responses to: "{question}"
+            1. GPT: {results['openai']['response'][:800]}
+            2. Claude: {results['anthropic']['response'][:800]}
+            3. Gemini: {results['google']['response'][:800]}
+            4. Perplexity: {results['perplexity']['response'][:800]}
+            
+            Provide summary:
+            ✅ **CONSENSUS** (Agreeing models): [Summary]
+            ⚠️ **DIVERGENCE**: [Unique points per model]
+            """
+        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=300
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Consensus Error: {str(e)}"
+
+@app.route('/api/ask', methods=['POST'])
+def ask_all_ais():
+    start_total = time.time()
+    image_data = None
+    question = ""
+    
+    if request.is_json:
+        data = request.json
+        question = data.get('question', '')
+        project_name = data.get('project_name')
+    else:
+        question = request.form.get('question', '')
+        project_name = request.form.get('project_name')
+        
+        # Handle Multiple Files
+        files = request.files.getlist('files')
+        
+        # Fallback to single 'file' if 'files' is empty (legacy support)
+        if not files:
+            single_file = request.files.get('file')
+            if single_file:
+                files = [single_file]
+
+        if files:
+            file_context_list = []
+            for file in files:
+                file_type, context, visual = process_file(file)
+                
+                if file_type == 'error': 
+                    # If error, just append error note but continue with other files
+                    file_context_list.append(f"\n[Error processing {file.filename}: {context}]")
+                    continue
+                    
+                if file_type == 'text':
+                    file_context_list.append(context)
+                
+                if file_type == 'image':
+                    # For now, we only support one image for visual processing due to model limits
+                    # We will use the LAST image found for the visual data, but keep context for all
+                    image_data = visual 
+                    file_context_list.append(context) # Context includes "[User uploaded image: name]"
+
+            # Append all file contexts to question
+            if file_context_list:
+                full_file_context = "\n\n".join(file_context_list)
+                question += f"\n\n{full_file_context}"
+
+    if not question: return jsonify({"error": "No question"}), 400
+    
+    # Handle Smart Project Context
+    if project_name:
+        try:
+            # Re-instantiate if needed or use global if available. Use local instance for safety.
+            pm = ProjectManager() 
+            history = pm.load_project_history(project_name)
+            if history and "conversation" in history:
+                # Get last 3 turns
+                recent_turns = history["conversation"][-3:]
+                if recent_turns:
+                   context_str = "\n".join([f"Q: {t['user_prompt']}\nSummary: {t.get('consensus', '')[:400]}..." for t in recent_turns]) 
+                   question += f"\n\n### 📂 PROJECT HISTORY ({project_name}) ###\n{context_str}\n\n(Use the above previous context to maintain continuity)"
+                   print(f"DEBUG: Added {len(recent_turns)} context items for {project_name}")
+        except Exception as e:
+            print(f"Project Context Error: {e}")
+
+    # Handle Vault Search
+    use_vault = request.json.get('use_vault') if request.is_json else (request.form.get('use_vault') == 'true')
+    
+    if use_vault:
+        print(f"DEBUG: Searching Vault Path: {OBSIDIAN_VAULT_PATH}")
+        print(f"DEBUG: Searching Vault for: {question[:30]}...")
+        vault_results = search_vault(question)
+        if vault_results:
+            vault_context = "\n\n".join([f"--- NOTE: {r['path']} ---\n{r['content']}..." for r in vault_results])
+            question += f"\n\n### 🧠 OBSIDIAN FAULT CONTEXT ###\n{vault_context}\n\n(Use the above context from my personal notes to answer the question if relevant)"
+
+    print(f"DEBUG: Processing question: {question[:50]}...")
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        f1 = executor.submit(query_openai, question, image_data)
+        f2 = executor.submit(query_anthropic, question, image_data)
+        f3 = executor.submit(query_google, question, image_data)
+        f4 = executor.submit(query_perplexity, question, image_data)
+        
+        try:
+            r1 = f1.result()
+            print("DEBUG: OpenAI finished")
+        except Exception as e:
+            print(f"CRITICAL: OpenAI Thread died: {e}")
+            r1 = {"success": False, "response": f"System Error: {str(e)}", "model": "Error", "time": 0, "cost": 0, "thought": None}
+
+        try:
+            r2 = f2.result()
+            print("DEBUG: Anthropic finished")
+        except Exception as e:
+            print(f"CRITICAL: Anthropic Thread died: {e}")
+            r2 = {"success": False, "response": f"System Error: {str(e)}", "model": "Error", "time": 0, "cost": 0, "thought": None}
+
+        try:
+            r3 = f3.result()
+            print("DEBUG: Google finished")
+        except Exception as e:
+            print(f"CRITICAL: Google Thread died: {e}")
+            r3 = {"success": False, "response": f"System Error: {str(e)}", "model": "Error", "time": 0, "cost": 0, "thought": None}
+
+        try:
+            r4 = f4.result()
+            print("DEBUG: Perplexity finished")
+        except Exception as e:
+            print(f"CRITICAL: Perplexity Thread died: {e}")
+            r4 = {"success": False, "response": f"System Error: {str(e)}", "model": "Error", "time": 0, "cost": 0, "thought": None}
+    
+    # Check citations
+    import re
+    def has_cite(txt): return bool(re.search(r'\[\d+\]|http', txt))
+    r1['has_citations'] = has_cite(r1['response'])
+    r2['has_citations'] = has_cite(r2['response'])
+    r3['has_citations'] = has_cite(r3['response'])
+    r4['has_citations'] = has_cite(r4['response'])
+
+    # Podcast Mode
+    podcast_mode = request.json.get('podcast_mode') if request.is_json else (request.form.get('podcast_mode') == 'true')
+
+    results_map = {"openai": r1, "anthropic": r2, "google": r3, "perplexity": r4}
+    consensus = generate_consensus(question, results_map, podcast_mode=podcast_mode)
+    
+    try:
+        cid = save_comparison(question, results_map)
+    except:
+        cid = None
+
+    # Save to Project if specified
+    # Save to Project if specified
+    if project_name:
+        try:
+            print(f"DEBUG: Saving to project '{project_name}'")
+            # Extract simple text from simplified results for storage to save space
+            simple_results = {}
+            for k, v in results_map.items():
+                simple_results[k] = v.get('response', '')[:500] + "..." # Truncate for history
+
+            project_manager.save_interaction(project_name, question, simple_results, consensus)
+        except Exception as e:
+            print(f"ERROR: Failed to save to project: {e}")
+
+    return jsonify({
+        "results": results_map,
+        "consensus": consensus,
+        "comparison_id": cid
+    })
+
+# Routes for history/stats etc
+@app.route('/api/history', methods=['GET'])
+def get_history(): return jsonify(get_recent_comparisons(request.args.get('limit', 50, type=int)))
+
+@app.route('/api/saved', methods=['GET'])
+def get_saved(): return jsonify(get_saved_comparisons())
+
+@app.route('/api/save/<int:comparison_id>', methods=['POST'])
+def save_bookmark(comparison_id):
+    mark_as_saved(comparison_id, (request.json or {}).get('tags', ''))
+    return jsonify({"success": True})
+
+@app.route('/api/stats', methods=['GET'])
+def get_stats(): return jsonify(get_comparison_stats())
+
+# Project Management Routes
+@app.route('/api/projects', methods=['GET'])
+def list_projects_route():
+    return jsonify(project_manager.list_projects())
+
+@app.route('/api/projects', methods=['POST'])
+def create_project_route():
+    data = request.json
+    name = data.get('name')
+    if not name:
+        return jsonify({"error": "Project name is required"}), 400
+    safe_name = project_manager.create_project(name)
+    return jsonify({"success": True, "project_name": safe_name})
+
+@app.route('/api/projects/<project_name>', methods=['GET'])
+def get_project_history_route(project_name):
+    history = project_manager.load_project_history(project_name)
+    if history:
+        return jsonify(history)
+    if history:
+        return jsonify(history)
+    return jsonify({"error": "Project not found"}), 404
+
+# Obsidian Integration
+@app.route('/api/save_to_obsidian', methods=['POST'])
+def save_to_obsidian():
+    try:
+        data = request.json
+        content = data.get('content')
+        filename = data.get('filename', f"TriAI_Report_{int(time.time())}.md")
+        
+        # Sanitize filename
+        filename = "".join([c for c in filename if c.isalpha() or c.isdigit() or c in " ._-"])
+        if not filename.endswith('.md'):
+            filename += '.md'
+            
+        # Ensure directory exists
+        TRIAI_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+        
+        file_path = TRIAI_REPORTS_DIR / filename
+        
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+            
+        return jsonify({"success": True, "path": str(file_path)})
+    except Exception as e:
+        print(f"Error saving to Obsidian: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)

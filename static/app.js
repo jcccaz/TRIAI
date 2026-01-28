@@ -1,0 +1,1048 @@
+// State Management
+// ==================== //
+let isQuerying = false;
+let selectedFiles = [];
+let currentProjectName = null;
+
+// ==================== //
+// Status Rotation Logic
+// ==================== //
+let statusInterval;
+const statusPhrases = [
+    "Querying models...",
+    "Comparing perspectives...",
+    "Synthesizing consensus...",
+    "Analyzing data patterns...",
+    "Finalizing report..."
+];
+
+function startStatusRotation() {
+    const statusText = document.getElementById('loadingStatusText');
+    if (!statusText) return;
+
+    let index = 0;
+    statusText.textContent = statusPhrases[0];
+    statusText.style.opacity = 1;
+
+    statusInterval = setInterval(() => {
+        index = (index + 1) % statusPhrases.length;
+        statusText.style.opacity = 0;
+        setTimeout(() => {
+            statusText.textContent = statusPhrases[index];
+            statusText.style.opacity = 1;
+        }, 200); // Wait for fade out
+    }, 2000); // Change every 2 seconds
+}
+
+function stopStatusRotation() {
+    if (statusInterval) {
+        clearInterval(statusInterval);
+        statusInterval = null;
+    }
+}
+
+// ==================== //
+// DOM Elements
+// ==================== //
+const questionInput = document.getElementById('questionInput');
+const askButton = document.getElementById('askButton');
+const loadingState = document.getElementById('loadingState');
+const consensusSection = document.getElementById('consensusSection');
+const consensusContent = document.getElementById('consensusContent');
+const vaultToggle = document.getElementById('vaultToggle');
+const citationToggle = document.getElementById('citationToggle');
+const thoughtToggle = document.getElementById('thoughtToggle');
+const podcastToggle = document.getElementById('podcastToggle');
+
+// File Upload Elements
+const fileUploadArea = document.getElementById('fileUploadArea');
+const fileInput = document.getElementById('fileInput');
+const filePreview = document.getElementById('filePreview'); // Still container
+const uploadPlaceholder = fileUploadArea.querySelector('.upload-placeholder');
+// Need to dynamically manage previews now
+
+
+// Response elements
+const responses = {
+    openai: {
+        model: document.getElementById('openai-model'),
+        time: document.getElementById('openai-time'),
+        cost: document.getElementById('openai-cost'),
+        response: document.getElementById('openai-response'),
+        thought: document.querySelector('#openai-thought .thought-content'),
+        thoughtContainer: document.getElementById('openai-thought'),
+        status: document.getElementById('openai-status'),
+        card: document.querySelector('.ai-card[data-ai="openai"]')
+    },
+    anthropic: {
+        model: document.getElementById('anthropic-model'),
+        time: document.getElementById('anthropic-time'),
+        cost: document.getElementById('anthropic-cost'),
+        response: document.getElementById('anthropic-response'),
+        thought: document.querySelector('#anthropic-thought .thought-content'),
+        thoughtContainer: document.getElementById('anthropic-thought'),
+        status: document.getElementById('anthropic-status'),
+        card: document.querySelector('.ai-card[data-ai="anthropic"]')
+    },
+    google: {
+        model: document.getElementById('google-model'),
+        time: document.getElementById('google-time'),
+        cost: document.getElementById('google-cost'),
+        response: document.getElementById('google-response'),
+        thought: document.querySelector('#google-thought .thought-content'),
+        thoughtContainer: document.getElementById('google-thought'),
+        status: document.getElementById('google-status'),
+        card: document.querySelector('.ai-card[data-ai="google"]')
+    },
+    perplexity: {
+        model: document.getElementById('perplexity-model'),
+        time: document.getElementById('perplexity-time'),
+        cost: document.getElementById('perplexity-cost'),
+        response: document.getElementById('perplexity-response'),
+        thought: document.querySelector('#perplexity-thought .thought-content'),
+        thoughtContainer: document.getElementById('perplexity-thought'),
+        status: document.getElementById('perplexity-status'),
+        card: document.querySelector('.ai-card[data-ai="perplexity"]')
+    }
+};
+
+// ==================== //
+// Event Listeners
+// ==================== //
+askButton.addEventListener('click', handleAskAllAIs);
+citationToggle.addEventListener('change', handleCitationToggle);
+thoughtToggle.addEventListener('change', handleThoughtToggle);
+
+questionInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleAskAllAIs();
+    }
+});
+
+// File Upload Logic
+fileUploadArea.addEventListener('click', () => fileInput.click());
+
+fileUploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    fileUploadArea.classList.add('dragover');
+});
+
+fileUploadArea.addEventListener('dragleave', () => {
+    fileUploadArea.classList.remove('dragover');
+});
+
+fileUploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    fileUploadArea.classList.remove('dragover');
+    if (e.dataTransfer.files.length) {
+        handleFileSelect(e.dataTransfer.files);
+    }
+});
+
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length) {
+        handleFileSelect(e.target.files);
+    }
+});
+
+function handleFileSelect(files) {
+    if (!files || files.length === 0) return;
+
+    // Add new files to our array
+    for (let i = 0; i < files.length; i++) {
+        selectedFiles.push(files[i]);
+    }
+
+    updateFilePreview();
+}
+
+function updateFilePreview() {
+    //Clear existing previews
+    filePreview.innerHTML = '';
+
+    if (selectedFiles.length === 0) {
+        filePreview.classList.add('hidden');
+        uploadPlaceholder.classList.remove('hidden');
+        fileInput.value = ''; // Reset input to allow re-selecting same file
+        return;
+    }
+
+    uploadPlaceholder.classList.add('hidden');
+    filePreview.classList.remove('hidden');
+
+    selectedFiles.forEach((file, index) => {
+        const tag = document.createElement('div');
+        tag.className = 'file-tag';
+        tag.innerHTML = `
+            <span class="file-name">${file.name}</span>
+            <button class="remove-file" data-index="${index}">×</button>
+        `;
+
+        tag.querySelector('.remove-file').addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeFile(index);
+        });
+
+        filePreview.appendChild(tag);
+    });
+}
+
+function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    updateFilePreview();
+}
+
+// Copy buttons
+document.querySelectorAll('.copy-button').forEach(button => {
+    button.addEventListener('click', handleCopyResponse);
+});
+
+// ==================== //
+// Main Function
+// ==================== //
+async function handleAskAllAIs() {
+    const question = questionInput.value.trim();
+
+    if (!question) {
+        alert('Please enter a question first!');
+        return;
+    }
+
+    if (isQuerying) {
+        return;
+    }
+
+    // Update UI state
+    isQuerying = true;
+    askButton.disabled = true;
+    askButton.querySelector('.button-text').textContent = 'Querying...';
+    loadingState.classList.remove('hidden');
+    startStatusRotation();
+    resultsSection.classList.add('hidden');
+    consensusSection.classList.add('hidden');
+
+    // Reset all responses
+    resetResponses();
+
+    // Video State: High Energy
+    const bgVideo = document.getElementById('bgVideo');
+    const processingVideo = document.getElementById('processingVideo');
+
+    if (bgVideo && processingVideo) {
+        bgVideo.classList.remove('active');
+        processingVideo.classList.add('active');
+        processingVideo.play(); // Ensure it plays
+    }
+
+    try {
+        let response;
+
+        // Check if we need to send a file
+        if (selectedFiles.length > 0) {
+            const formData = new FormData();
+            formData.append('question', question);
+            formData.append('use_vault', vaultToggle.checked);
+            formData.append('podcast_mode', podcastToggle ? podcastToggle.checked : false);
+
+            // Append all files
+            selectedFiles.forEach(file => {
+                formData.append('files', file);
+            });
+
+            if (currentProjectName) {
+                formData.append('project_name', currentProjectName);
+            }
+
+            response = await fetch('/api/ask', {
+                method: 'POST',
+                body: formData // No Content-Type header needed, browser sets boundary
+            });
+
+            // Clear files after successful send (optional, but good UX)
+            selectedFiles = [];
+            updateFilePreview();
+
+        } else {
+            // Standard JSON request
+            const payload = {
+                question,
+                use_vault: vaultToggle.checked,
+                podcast_mode: podcastToggle ? podcastToggle.checked : false
+            };
+            if (currentProjectName) {
+                payload.project_name = currentProjectName;
+            }
+
+            response = await fetch('/api/ask', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+        }
+
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || 'API request failed');
+        }
+
+        const data = await response.json();
+
+        // Update UI with responses using the "results" key
+        const results = data.results;
+        updateResponse('openai', results.openai);
+        updateResponse('anthropic', results.anthropic);
+        updateResponse('google', results.google);
+        updateResponse('perplexity', results.perplexity);
+
+        // Show Consensus
+        if (data.consensus) {
+            consensusContent.innerHTML = formatMarkdown(data.consensus);
+            consensusSection.classList.remove('hidden');
+        }
+
+        // Show results
+        loadingState.classList.add('hidden');
+        resultsSection.classList.remove('hidden');
+
+        // Apply toggle states
+        handleCitationToggle();
+        handleThoughtToggle();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#1a1a1a',
+                primaryTextColor: '#e5e5e5',
+                primaryBorderColor: '#ffd700',
+                lineColor: '#a3a3a3',
+                secondaryColor: '#2a2a2a',
+                tertiaryColor: '#1a1a1a'
+            }
+        });
+        await mermaid.run();
+
+    } catch (error) {
+        console.error('Error:', error);
+        alert(`Error: ${error.message}`);
+        loadingState.classList.add('hidden');
+    } finally {
+        // Reset UI state
+        stopStatusRotation();
+        isQuerying = false;
+        askButton.disabled = false;
+        askButton.querySelector('.button-text').textContent = 'Ask All AIs';
+
+        // Video State: Return to Calm
+        if (bgVideo && processingVideo) {
+            processingVideo.classList.remove('active');
+            setTimeout(() => processingVideo.pause(), 1500); // Pause after fade out to save resources
+            bgVideo.classList.add('active');
+        }
+    }
+}
+
+// ==================== //
+// Response Handling
+// ==================== //
+function resetResponses() {
+    Object.keys(responses).forEach(aiName => {
+        responses[aiName].response.textContent = 'Waiting for response...';
+        responses[aiName].response.classList.remove('error');
+        responses[aiName].thought.textContent = '';
+        responses[aiName].thoughtContainer.classList.add('hidden');
+        responses[aiName].time.textContent = '-- s';
+        responses[aiName].cost.textContent = '$0.000';
+        responses[aiName].status.textContent = '';
+        responses[aiName].status.classList.remove('success', 'error');
+        responses[aiName].card.classList.remove('hidden-by-filter');
+        responses[aiName].card.dataset.hasCitations = 'false';
+    });
+}
+
+function updateResponse(aiName, data) {
+    const elements = responses[aiName];
+    if (!elements) return;
+
+    // Update model name
+    if (data.model) {
+        elements.model.textContent = data.model;
+    }
+
+    // Update response time & cost
+    elements.time.textContent = `${data.time}s`;
+    elements.cost.textContent = `$${data.cost?.toFixed(4) || '0.0000'}`;
+
+    // Update citation data
+    elements.card.dataset.hasCitations = data.has_citations;
+
+    // Update thought Trace if available
+    if (data.thought) {
+        elements.thought.innerHTML = formatMarkdown(data.thought);
+        elements.thoughtContainer.dataset.hasThought = 'true';
+    } else {
+        elements.thoughtContainer.dataset.hasThought = 'false';
+    }
+
+    // Update response text
+    if (data.success) {
+        elements.response.innerHTML = formatMarkdown(data.response);
+        elements.response.classList.remove('error');
+        elements.status.textContent = '✓ Success';
+        elements.status.classList.add('success');
+        elements.status.classList.remove('error');
+    } else {
+        elements.response.textContent = data.response;
+        elements.response.classList.add('error');
+        elements.status.textContent = '✗ Error';
+        elements.status.classList.add('error');
+        elements.status.classList.remove('success');
+    }
+}
+
+function handleCitationToggle() {
+    const isChecked = citationToggle.checked;
+    const grid = document.querySelector('.results-grid');
+    if (isChecked) {
+        grid.classList.add('citations-only');
+    } else {
+        grid.classList.remove('citations-only');
+    }
+}
+
+function handleThoughtToggle() {
+    const isChecked = thoughtToggle.checked;
+
+    Object.keys(responses).forEach(aiName => {
+        const container = responses[aiName].thoughtContainer;
+        const hasThought = container.dataset.hasThought === 'true';
+
+        if (isChecked && hasThought) {
+            container.classList.remove('hidden');
+        } else {
+            container.classList.add('hidden');
+        }
+    });
+}
+
+// ==================== //
+// Formatting
+// ==================== //
+// ==================== //
+// Formatting
+// ==================== //
+function formatMarkdown(text) {
+    if (!text) return '';
+
+    const placeholders = [];
+
+    // Helper to store code blocks
+    function store(content) {
+        const id = `__PLACEHOLDER_${placeholders.length}__`;
+        placeholders.push(content);
+        return id;
+    }
+
+    // 1. Extract Mermaid Blocks (Preserve newlines)
+    text = text.replace(/```mermaid\n([\s\S]*?)\n```/g, (match, code) => {
+        return store(`<div class="mermaid">${code}</div>`);
+    });
+
+    // 2. Extract Standard Code Blocks & Renderable
+    text = text.replace(/```(xml|svg|html)\n([\s\S]*?)\n```/g, (match, lang, code) => {
+        const id = 'code-' + Math.random().toString(36).substr(2, 9);
+        const encodedCode = encodeURIComponent(code);
+        const btn = `<button class="render-btn" onclick="renderCode('${id}', '${lang}', '${encodedCode}')">▶ Render Preview</button>`;
+        const html = `<pre><code class="language-${lang}">${code.replace(/</g, '&lt;')}</code></pre>
+                      ${btn}
+                      <div id="${id}" class="preview-box hidden"></div>`;
+        return store(html);
+    });
+
+    text = text.replace(/```(\w*)\n([\s\S]*?)\n```/g, (match, lang, code) => {
+        return store(`<pre><code class="language-${lang}">${code.replace(/</g, '&lt;')}</code></pre>`);
+    });
+
+    // 3. Extract Inline Code
+    text = text.replace(/`([^`]+)`/g, (match, code) => {
+        return store(`<code>${code.replace(/</g, '&lt;')}</code>`);
+    });
+
+    // --- Process Standard Text ---
+
+    // 4. Bold / Italic
+    text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+    // 5. Line breaks (only in non-code text)
+    text = text.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+
+    // --- Restore Placeholders ---
+    placeholders.forEach((content, index) => {
+        text = text.replace(`__PLACEHOLDER_${index}__`, content);
+    });
+
+    return text;
+}
+
+// Global function for rendering code
+window.renderCode = function (containerId, lang, encodedCode) {
+    const container = document.getElementById(containerId);
+    const code = decodeURIComponent(encodedCode);
+
+    container.classList.remove('hidden');
+    container.innerHTML = ''; // Clear previous
+
+    const iframe = document.createElement('iframe');
+    container.appendChild(iframe);
+
+    // Write content to iframe
+    const doc = iframe.contentWindow.document;
+    doc.open();
+
+    if (lang === 'svg' || (lang === 'xml' && code.includes('<svg'))) {
+        doc.write(`
+            <style>
+                body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #fff; }
+                svg { max-width: 95%; max-height: 95%; }
+            </style>
+            ${code}
+        `);
+    } else {
+        // HTML
+        doc.write(code);
+    }
+
+    doc.close();
+};
+
+// ==================== //
+// Copy Functionality
+// ==================== //
+function handleCopyResponse(e) {
+    const button = e.currentTarget;
+    const targetAI = button.getAttribute('data-target');
+    const responseText = responses[targetAI].response.textContent;
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(responseText).then(() => {
+        // Visual feedback
+        const originalHTML = button.innerHTML;
+        button.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.5 4L6 11.5L2.5 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        button.style.color = '#10b981';
+
+        setTimeout(() => {
+            button.innerHTML = originalHTML;
+            button.style.color = '';
+        }, 2000);
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+        alert('Failed to copy to clipboard');
+    });
+}
+
+// ==================== //
+// History & UI Logic
+// ==================== //
+const historySidebar = document.getElementById('historySidebar');
+const historyList = document.getElementById('historyList');
+const historyToggle = document.getElementById('historyToggle');
+const closeHistory = document.getElementById('closeHistory');
+
+// Toggle History
+if (historyToggle) {
+    historyToggle.addEventListener('click', () => {
+        historySidebar.classList.add('open');
+        loadHistory();
+    });
+}
+
+if (closeHistory) {
+    closeHistory.addEventListener('click', () => {
+        historySidebar.classList.remove('open');
+    });
+}
+
+// Close when clicking outside
+document.addEventListener('click', (e) => {
+    if (historySidebar.classList.contains('open') &&
+        !historySidebar.contains(e.target) &&
+        !historyToggle.contains(e.target)) {
+        historySidebar.classList.remove('open');
+    }
+});
+
+async function loadHistory() {
+    try {
+        const response = await fetch('/api/history?limit=20');
+        const historyData = await response.json();
+
+        historyList.innerHTML = '';
+
+        if (historyData.length === 0) {
+            historyList.innerHTML = '<div style="padding:1rem; color:var(--text-muted); text-align:center;">No history found.</div>';
+            return;
+        }
+
+        historyData.forEach(item => {
+            const el = document.createElement('div');
+            el.className = 'history-item';
+            el.innerHTML = `
+                <div class="history-question">${item.question || 'No Question'}</div>
+                <div class="history-meta d-flex justify-content-between">
+                    <span>${new Date(item.timestamp).toLocaleDateString()}</span>
+                    <span>${item.responses ? item.responses.length : 0} AIs</span>
+                </div>
+            `;
+            el.addEventListener('click', () => loadHistoryItem(item));
+            historyList.appendChild(el);
+        });
+
+    } catch (error) {
+        console.error('Failed to load history:', error);
+        historyList.innerHTML = '<div style="color:red; padding:1rem;">Failed to load history</div>';
+    }
+}
+
+function loadHistoryItem(item) {
+    // Populate the main input
+    questionInput.value = item.question;
+
+    // Reset UI first
+    resetResponses();
+    resultsSection.classList.remove('hidden');
+    consensusSection.classList.add('hidden'); // Hide consensus unless we saved it (db schema update might be needed for consensus saving)
+
+    // Populate responses
+    if (item.responses) {
+        item.responses.forEach(resp => {
+            // Map db fields to UI fields
+            // DB keys: ai_provider, model_name, response_text, response_time, success
+            const aiKey = resp.ai_provider.toLowerCase();
+            if (responses[aiKey]) {
+                const uiData = {
+                    model: resp.model_name,
+                    time: resp.response_time,
+                    cost: 0, // We don't save cost yet, maybe in future
+                    has_citations: false, // We check regex below
+                    thought: null, // We don't save thought trace yet
+                    response: resp.response_text,
+                    success: resp.success
+                };
+
+                // Simple regex check for citations in loaded text
+                uiData.has_citations = /\[\d+\]|http/.test(uiData.response);
+
+                updateResponse(aiKey, uiData);
+            }
+        });
+    }
+
+    // Close sidebar on mobile
+    if (window.innerWidth < 768) {
+        historySidebar.classList.remove('open');
+    }
+}
+
+// ==================== //
+// Project Management
+// ==================== //
+const projectsSidebar = document.getElementById('projectsSidebar');
+const projectsToggle = document.getElementById('projectsToggle');
+const closeProjects = document.getElementById('closeProjects');
+const projectsList = document.getElementById('projectsList');
+const newProjectInput = document.getElementById('newProjectInput');
+const createProjectBtn = document.getElementById('createProjectBtn');
+
+const currentProjectDisplay = document.getElementById('currentProjectDisplay');
+const currentProjectNameSpan = document.getElementById('currentProjectName');
+const clearProjectBtn = document.getElementById('clearProject');
+
+// Export & Voice Elements
+const exportBtn = document.getElementById('exportBtn');
+const micBtn = document.getElementById('micBtn');
+const listenBtn = document.getElementById('listenBtn');
+const obsidianBtn = document.getElementById('obsidianBtn');
+
+// Event Listeners
+if (projectsToggle) {
+    projectsToggle.addEventListener('click', () => {
+        projectsSidebar.classList.add('open');
+        loadProjects();
+    });
+}
+
+if (listenBtn) listenBtn.addEventListener('click', toggleSpeech);
+if (exportBtn) exportBtn.addEventListener('click', exportToMarkdown);
+if (obsidianBtn) obsidianBtn.addEventListener('click', saveToObsidian);
+
+if (micBtn) {
+    micBtn.addEventListener('click', toggleVoiceInput);
+}
+
+// ... existing code ...
+
+if (closeProjects) {
+    closeProjects.addEventListener('click', () => {
+        projectsSidebar.classList.remove('open');
+    });
+}
+
+// Close sidebar on outside click
+document.addEventListener('click', (e) => {
+    if (projectsSidebar.classList.contains('open') &&
+        !projectsSidebar.contains(e.target) &&
+        !projectsToggle.contains(e.target)) {
+        projectsSidebar.classList.remove('open');
+    }
+});
+
+createProjectBtn.addEventListener('click', createProject);
+newProjectInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') createProject();
+});
+
+clearProjectBtn.addEventListener('click', () => {
+    currentProjectName = null;
+    currentProjectDisplay.classList.add('hidden');
+    // Optionally clear main UI or show toast
+});
+
+// Functions
+async function loadProjects() {
+    try {
+        const response = await fetch('/api/projects');
+        const projects = await response.json();
+
+        projectsList.innerHTML = '';
+
+        if (projects.length === 0) {
+            projectsList.innerHTML = '<div style="padding:1rem; color:var(--text-muted);">No projects yet. Create one!</div>';
+            return;
+        }
+
+        projects.forEach(name => {
+            const el = document.createElement('div');
+            el.className = `project-item ${name === currentProjectName ? 'active-project' : ''}`;
+            el.innerHTML = `
+                <span class="project-name">${name}</span>
+                <span class="project-arrow">→</span>
+            `;
+            el.addEventListener('click', () => selectProject(name));
+            projectsList.appendChild(el);
+        });
+    } catch (error) {
+        console.error('Failed to load projects:', error);
+        projectsList.textContent = 'Error loading projects.';
+    }
+}
+
+async function createProject() {
+    const name = newProjectInput.value.trim();
+    if (!name) return;
+
+    try {
+        const response = await fetch('/api/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            newProjectInput.value = '';
+            loadProjects();
+            selectProject(data.project_name);
+        } else {
+            alert(data.error || 'Failed to create project');
+        }
+    } catch (error) {
+        console.error('Error creating project:', error);
+    }
+}
+
+function selectProject(name) {
+    currentProjectName = name;
+    currentProjectNameSpan.textContent = name;
+    currentProjectDisplay.classList.remove('hidden');
+    projectsSidebar.classList.remove('open');
+
+    // Highlight active in list if visible
+    document.querySelectorAll('.project-item').forEach(el => {
+        el.classList.toggle('active-project', el.querySelector('.project-name').textContent === name);
+    });
+}
+
+// ==================== //
+// Power Features
+// ==================== //
+
+function generateMarkdown() {
+    const question = questionInput.value.trim() || "Untitled Query";
+    const consensus = consensusContent.innerText;
+    const timestamp = new Date().toLocaleString();
+
+    let md = `# TriAI Report: ${question}\n\n`;
+    md += `**Date:** ${timestamp}\n`;
+    if (currentProjectName) md += `**Project:** ${currentProjectName}\n`;
+    md += `\n---\n\n## 🤖 Consensus Analysis\n\n${consensus}\n\n---\n\n`;
+
+    // Add individual responses
+    Object.keys(responses).forEach(key => {
+        const r = responses[key];
+        const name = r.model.textContent || key.toUpperCase();
+        const text = r.response.innerText;
+        md += `## ${key.toUpperCase()} (${name})\n\n${text}\n\n---\n\n`;
+    });
+
+    return { title: question, content: md };
+}
+
+// 1. Export to Markdown (Download)
+function exportToMarkdown() {
+    const { title, content } = generateMarkdown();
+    const blob = new Blob([content], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `TriAI_${title.replace(/[^a-z0-9]/gi, '_').substring(0, 50)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// 2. Save directly to Obsidian Vault
+async function saveToObsidian() {
+    const { title, content } = generateMarkdown();
+    const safeTitle = title.replace(/[^a-z0-9 ]/gi, '').trim().substring(0, 50) || "Report";
+    const filename = `TriAI - ${safeTitle}.md`;
+
+    // UI Feedback - Start
+    const originalText = obsidianBtn.innerHTML;
+    obsidianBtn.innerHTML = '<span class="icon">⏳</span> Saving...';
+    obsidianBtn.disabled = true;
+
+    try {
+        const response = await fetch('/api/save_to_obsidian', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                filename: filename,
+                content: content
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            obsidianBtn.innerHTML = '<span class="icon">✓</span> Saved!';
+            obsidianBtn.style.borderColor = '#10b981';
+            setTimeout(() => {
+                obsidianBtn.innerHTML = originalText;
+                obsidianBtn.style.borderColor = '';
+                obsidianBtn.disabled = false;
+            }, 3000);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Save failed:', error);
+        alert('Failed to save to Obsidian: ' + error.message);
+        obsidianBtn.innerHTML = '<span class="icon">✗</span> Failed';
+        setTimeout(() => {
+            obsidianBtn.innerHTML = originalText;
+            obsidianBtn.disabled = false;
+        }, 3000);
+    }
+}
+
+// 2. Voice Input
+let recognition;
+if ('webkitSpeechRecognition' in window) {
+    recognition = new webkitSpeechRecognition();
+    recognition.continuous = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = function () {
+        micBtn.classList.add('listening');
+        micBtn.style.color = '#ef4444'; // Red for recording
+        // Optional logic to show "Listening..."
+    };
+
+    recognition.onend = function () {
+        micBtn.classList.remove('listening');
+        micBtn.style.color = '';
+    };
+
+    recognition.onresult = function (event) {
+        const transcript = event.results[0][0].transcript;
+        questionInput.value += (questionInput.value ? " " : "") + transcript;
+        // Auto-resize or focus if needed
+        questionInput.focus();
+    };
+}
+
+function toggleVoiceInput() {
+    if (!recognition) {
+        alert("Voice input not supported in this browser. Try Chrome or Edge.");
+        return;
+    }
+
+
+    if (micBtn.classList.contains('listening')) {
+        recognition.stop();
+    } else {
+        recognition.start();
+    }
+}
+
+// 3. Text-to-Speech (Global Manager)
+let speechSynth = window.speechSynthesis;
+let speechUtterance = null;
+let podcastQueue = [];
+let isPodcastPlaying = false;
+let availableVoices = [];
+
+// Ensure voices are loaded
+function loadVoices() {
+    availableVoices = speechSynth.getVoices();
+    console.log("Voices loaded:", availableVoices.length);
+}
+
+// Initialize voices
+loadVoices();
+if (speechSynth.onvoiceschanged !== undefined) {
+    speechSynth.onvoiceschanged = loadVoices;
+}
+
+function toggleSpeech() {
+    if (speechSynth.speaking || isPodcastPlaying) {
+        // Stop Everything
+        speechSynth.cancel();
+        isPodcastPlaying = false;
+        podcastQueue = [];
+        updateListenButton(false);
+    } else {
+        // Start Speaking
+        const text = consensusContent.innerText;
+        if (!text || text.includes('Loading analysis...')) return;
+
+        // Check format - simplified check
+        if (text.match(/Host [A1]/i)) {
+            console.log("Podcast Mode Detected");
+            playPodcast(text);
+        } else {
+            console.log("Normal Mode Detected");
+            playNormal(text);
+        }
+        updateListenButton(true);
+    }
+}
+
+function playNormal(text) {
+    speechUtterance = new SpeechSynthesisUtterance(text);
+    speechUtterance.lang = 'en-US';
+
+    // Voice Selection
+    const voice = availableVoices.find(v => v.name.includes("Google US English") || v.name.includes("Microsoft Zira")) || availableVoices[0];
+    if (voice) speechUtterance.voice = voice;
+
+    speechUtterance.onend = () => updateListenButton(false);
+    speechUtterance.onerror = (e) => {
+        console.error("Speech Error:", e);
+        updateListenButton(false);
+    };
+    speechSynth.speak(speechUtterance);
+}
+
+function playPodcast(text) {
+    isPodcastPlaying = true;
+    // Split by newlines
+    const lines = text.split('\n').filter(line => line.trim() !== '');
+    podcastQueue = [];
+
+    // Assign Voices - Ensure we have distinct ones if possible
+    const voiceA = availableVoices.find(v => v.name.includes("Google US English") || v.name.includes("Microsoft David")) || availableVoices[0];
+    const voiceB = availableVoices.find(v => v.name.includes("Google UK English Female") || v.name.includes("Microsoft Zira")) || availableVoices.find(v => v !== voiceA) || voiceA;
+
+    lines.forEach(line => {
+        let speaker = null;
+        let content = line;
+
+        // Flexible regex to catch "**Host A**", "Host A:", "**Host 1**", etc.
+        if (line.match(/\**Host\s*[A1]\**[:\.]?/i)) {
+            speaker = 'A';
+            content = line.replace(/\**Host\s*[A1]\**[:\.]?/gi, '').trim();
+        } else if (line.match(/\**Host\s*[B2]\**[:\.]?/i)) {
+            speaker = 'B';
+            content = line.replace(/\**Host\s*[B2]\**[:\.]?/gi, '').trim();
+        }
+
+        // If content is just metadata, ignore it
+        if (content.length < 2) return;
+
+        if (content && speaker) {
+            const utt = new SpeechSynthesisUtterance(content);
+            utt.voice = (speaker === 'B') ? voiceB : voiceA;
+            // Slightly different pitch/rate for variety
+            if (speaker === 'B') { utt.pitch = 1.1; utt.rate = 1.05; }
+            else { utt.pitch = 1.0; utt.rate = 1.0; }
+
+            podcastQueue.push(utt);
+        } else if (content && podcastQueue.length > 0) {
+            // Append to previous speaker if no speaker tag found but previous exists
+            // Optional: Handle continuation lines if needed, for now simplistic approach
+        }
+    });
+
+    if (podcastQueue.length === 0) {
+        console.warn("Podcast parsing failed, falling back to normal read.");
+        playNormal(text);
+        return;
+    }
+
+    playNextPodcastLine();
+}
+
+function playNextPodcastLine() {
+    if (!isPodcastPlaying) return;
+
+    if (podcastQueue.length === 0) {
+        isPodcastPlaying = false;
+        updateListenButton(false);
+        return;
+    }
+
+    const utt = podcastQueue.shift();
+    utt.onend = () => playNextPodcastLine();
+    utt.onerror = (e) => console.error("Podcast Line Error:", e);
+
+    // Small delay between speakers for realism
+    setTimeout(() => {
+        if (isPodcastPlaying) speechSynth.speak(utt);
+    }, 200);
+}
+
+function updateListenButton(isSpeaking) {
+    if (isSpeaking) {
+        listenBtn.innerHTML = '<span class="icon">⏹️</span> Stop';
+        listenBtn.classList.add('active-voice');
+        listenBtn.style.borderColor = '#eab308'; // Warn/Gold color
+        listenBtn.style.color = '#eab308';
+    } else {
+        listenBtn.innerHTML = '<span class="icon">🔊</span> Listen';
+        listenBtn.classList.remove('active-voice');
+        listenBtn.style.borderColor = ''; // Reset to default
+        listenBtn.style.color = '';
+    }
+}
+
+// ==================== //
+// Initialization
+// ==================== //
+console.log('TriAI Compare loaded successfully');

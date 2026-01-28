@@ -1,0 +1,317 @@
+/* ==================== */
+/* Background Video */
+/* ==================== */
+.bg-video-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    overflow: hidden;
+    background: #000;
+    /* Prevent white flashes */
+}
+
+.video-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 1.5s ease-in-out;
+    /* Smooth fade */
+    filter: brightness(0.6) contrast(1.2);
+}
+
+.video-layer.active {
+    opacity: 0.15;
+    /* Standard background opacity - reduced for subtlety */
+}
+
+#processingVideo.active {
+    opacity: 0.6;
+    /* Higher opacity for the high energy state */
+}
+
+/* ==================== */
+/* Sidebars (Generic)   */
+/* ==================== */
+.sidebar {
+    position: fixed;
+    top: 0;
+    width: 350px;
+    height: 100vh;
+    background: var(--bg-secondary);
+    z-index: 1000;
+    transition: transform 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.left-sidebar {
+    left: 0;
+    transform: translateX(-100%);
+    border-right: 1px solid var(--border-subtle);
+}
+
+.right-sidebar {
+    right: 0;
+    transform: translateX(100%);
+    border-left: 1px solid var(--border-subtle);
+}
+
+.sidebar.open {
+    transform: translateX(0);
+}
+
+.sidebar-header {
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sidebar-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.close-sidebar {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1.5rem;
+    padding: 0.25rem;
+    transition: color 0.2s ease;
+}
+
+.close-sidebar:hover {
+    color: #ef4444;
+}
+
+/* ==================== */
+/* Navbar & Toggles     */
+/* ==================== */
+.navbar {
+    position: fixed;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    /* Positioning toggles on top-right */
+    z-index: 900;
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.nav-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    font-family: var(--font-primary);
+}
+
+.nav-btn:hover {
+    border-color: var(--accent-neutral);
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+/* ==================== */
+/* Project UI Elements  */
+/* ==================== */
+.projects-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.create-project-form {
+    padding: var(--spacing-md);
+    display: flex;
+    gap: var(--spacing-xs);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+#newProjectInput {
+    flex: 1;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+}
+
+#newProjectInput:focus {
+    outline: none;
+    border-color: var(--accent-gold);
+}
+
+#createProjectBtn {
+    background: var(--accent-gold);
+    color: #000;
+    border: none;
+    border-radius: var(--radius-sm);
+    width: 36px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s;
+}
+
+#createProjectBtn:hover {
+    opacity: 0.9;
+}
+
+.projects-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-md);
+}
+
+.project-item {
+    padding: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.project-item:hover {
+    border-color: var(--text-secondary);
+    background: var(--bg-hover);
+}
+
+.project-item.active-project {
+    border-color: var(--accent-gold);
+    background: rgba(212, 175, 55, 0.05);
+}
+
+.project-name {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.project-date {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* Current Project Display (Header) */
+.current-project-display {
+    margin-top: var(--spacing-sm);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 0.25rem 0.75rem;
+    background: rgba(212, 175, 55, 0.1);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+}
+
+.current-project-display.hidden {
+    display: none;
+}
+
+.current-project-display .label {
+    color: var(--accent-gold);
+    font-weight: 600;
+}
+
+.current-project-display .value {
+    color: var(--text-primary);
+}
+
+.clear-project-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0 4px;
+    margin-left: 4px;
+}
+
+.clear-project-btn:hover {
+    color: var(--text-primary);
+}
+
+/* History List Reuse */
+.history-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-md);
+}
+
+.history-item {
+    padding: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.history-item:hover {
+    border-color: var(--accent-neutral);
+    background: var(--bg-hover);
+}
+
+.history-question {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.history-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+/* Scrollbars */
+.projects-list::-webkit-scrollbar,
+.history-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.projects-list::-webkit-scrollbar-track,
+.history-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.projects-list::-webkit-scrollbar-thumb,
+.history-list::-webkit-scrollbar-thumb {
+    background: var(--border-hover);
+    border-radius: 3px;
+}

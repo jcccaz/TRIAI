@@ -1,0 +1,3 @@
+cd "c:\Users\carlo\OneDrive\Documents\Obsidian_Franknet\FrankNet\FrankNet\tri_ai_compare"
+python app.py
+http://localhost:5000
