@@ -6,3 +6,5 @@ google-generativeai
 python-dotenv
 requests
 gunicorn
+PyPDF2
+Pillow
