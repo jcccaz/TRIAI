@@ -35,7 +35,15 @@ genai.configure(api_key=GOOGLE_API_KEY)
 project_manager = ProjectManager()
 
 # Configuration
-OBSIDIAN_VAULT_PATH = Path(r"c:/Users/carlo/OneDrive/Documents/Obsidian_Franknet")
+# Use environment variable or fallback to local FrankNet path (Windows)
+env_vault = os.getenv('OBSIDIAN_VAULT_PATH')
+if env_vault:
+    OBSIDIAN_VAULT_PATH = Path(env_vault)
+elif os.name == 'nt': # Local Windows Dev
+    OBSIDIAN_VAULT_PATH = Path(r"c:/Users/carlo/OneDrive/Documents/Obsidian_Franknet")
+else: # Cloud fallback (folder probably doesn't exist, which is fine, search will just return empty)
+    OBSIDIAN_VAULT_PATH = Path("./vault_data")
+
 TRIAI_REPORTS_DIR = OBSIDIAN_VAULT_PATH / "TriAI_Reports"
 
 # Cost estimation (approximate USD per 1M tokens)
@@ -552,7 +560,6 @@ def ask_all_ais():
         cid = None
 
     # Save to Project if specified
-    # Save to Project if specified
     if project_name:
         try:
             print(f"DEBUG: Saving to project '{project_name}'")
@@ -603,8 +610,6 @@ def create_project_route():
 @app.route('/api/projects/<project_name>', methods=['GET'])
 def get_project_history_route(project_name):
     history = project_manager.load_project_history(project_name)
-    if history:
-        return jsonify(history)
     if history:
         return jsonify(history)
     return jsonify({"error": "Project not found"}), 404
