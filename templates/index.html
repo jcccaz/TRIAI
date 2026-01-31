@@ -8,6 +8,42 @@
     <meta name="description" content="Compare responses from OpenAI, Anthropic, Google, and Perplexity AI side-by-side">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/history_video.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/role_selectors.css') }}">
+    <style>
+        .sandbag-badge {
+            background: rgba(255, 165, 0, 0.1);
+            color: #ffa500;
+            border: 1px solid rgba(255, 165, 0, 0.3);
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-left: 10px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 0.7;
+            }
+
+            50% {
+                opacity: 1;
+                transform: scale(1.05);
+            }
+
+            100% {
+                opacity: 0.7;
+            }
+        }
+
+        .sandbag-badge.hidden {
+            display: none;
+        }
+    </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -16,6 +52,19 @@
 </head>
 
 <body>
+    <!-- Background Video Container -->
+    <div class="bg-video-container">
+        <!-- Idle State (Low Energy) -->
+        <video id="bgVideo" class="video-layer active" autoplay muted loop playsinline>
+            <source src="{{ url_for('static', filename='videos/background_main.mp4') }}" type="video/mp4">
+        </video>
+
+        <!-- Processing State (High Energy) -->
+        <video id="processingVideo" class="video-layer" muted loop playsinline>
+            <source src="{{ url_for('static', filename='videos/processing_gold_final.mp4') }}" type="video/mp4">
+        </video>
+    </div>
+
     <div class="app-container">
         <!-- Header -->
         <header class="header">
@@ -40,23 +89,11 @@
                 <button id="historyToggle" class="nav-btn">
                     <span class="icon">📜</span> History
                 </button>
+                <a href="/dashboard" class="nav-btn">
+                    <span class="icon">📊</span> Learning
+                </a>
             </div>
         </header>
-
-        <!-- Background Video -->
-        <!-- Background Video Container -->
-        <div class="bg-video-container">
-            <!-- Idle State (Low Energy) -->
-            <video id="bgVideo" class="video-layer active" autoplay muted loop playsinline
-                poster="{{ url_for('static', filename='img/poster.jpg') }}">
-                <source src="{{ url_for('static', filename='videos/backround_main.mp4') }}" type="video/mp4">
-            </video>
-
-            <!-- Processing State (High Energy) -->
-            <video id="processingVideo" class="video-layer" muted loop playsinline>
-                <source src="{{ url_for('static', filename='videos/processing_gold_final.mp4') }}" type="video/mp4">
-            </video>
-        </div>
 
         <!-- Projects Sidebar -->
         <aside id="projectsSidebar" class="sidebar left-sidebar">
@@ -107,27 +144,132 @@
                     </div>
                 </div>
 
+                <!-- Active Models Section -->
+                <div class="model-selection-area">
+                    <span class="section-label">ACTIVE MODELS:</span>
+                    <div class="model-toggles">
+                        <button class="model-toggle active" data-model="openai">
+                            <span class="status-icon">✓</span> GPT-5.2
+                        </button>
+                        <button class="model-toggle active" data-model="anthropic">
+                            <span class="status-icon">✓</span> Claude S4
+                        </button>
+                        <button class="model-toggle active" data-model="google">
+                            <span class="status-icon">✓</span> Gemini 3.0
+                        </button>
+                        <button class="model-toggle active" data-model="perplexity">
+                            <span class="status-icon">✓</span> Perplexity
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Council Role Selectors (shown when Council Mode is ON) -->
+                <div id="roleSelectors" class="role-selectors hidden">
+                    <!-- Recommendation UI -->
+                    <div id="roleRecommendation" class="recommended-council-box hidden">
+                        <div class="rec-header">
+                            <span class="rec-icon">🏛️</span>
+                            <div class="rec-text">
+                                <span class="rec-label">Query detected:</span>
+                                <span id="detectedCategory" class="rec-category">Analyzing...</span>
+                            </div>
+                        </div>
+                        <div class="rec-suggestion">
+                            <p>Recommended Council configuration:</p>
+                            <ul id="recommendedRolesList">
+                                <!-- Roles will be injected here -->
+                            </ul>
+                            <div class="rec-meta">
+                                This configuration has <span id="recRating">--</span> avg rating
+                            </div>
+                        </div>
+                        <div class="rec-actions">
+                            <button id="useRecommendedBtn" class="rec-btn primary">Use Recommended</button>
+                            <button id="customizeRolesBtn" class="rec-btn secondary">Customize</button>
+                        </div>
+                    </div>
+
+                    <div class="role-selector-header">
+                        <span class="roles-title">🏛️ Assign Council Roles:</span>
+                    </div>
+                    <div class="role-selector-grid">
+                        <div class="role-assignment">
+                            <label class="role-label">OpenAI (GPT-5.2):</label>
+                            <select id="roleOpenAI" class="role-dropdown">
+                                {% for key, role in roles.items() %}
+                                <option value="{{ key }}" {% if defaults.openai==key %}selected{% endif %}>
+                                    {{ role.icon }} {{ role.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="role-assignment">
+                            <label class="role-label">Anthropic (Claude):</label>
+                            <select id="roleAnthropic" class="role-dropdown">
+                                {% for key, role in roles.items() %}
+                                <option value="{{ key }}" {% if defaults.anthropic==key %}selected{% endif %}>
+                                    {{ role.icon }} {{ role.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="role-assignment">
+                            <label class="role-label">Google (Gemini):</label>
+                            <select id="roleGoogle" class="role-dropdown">
+                                {% for key, role in roles.items() %}
+                                <option value="{{ key }}" {% if defaults.google==key %}selected{% endif %}>
+                                    {{ role.icon }} {{ role.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="role-assignment">
+                            <label class="role-label">Perplexity:</label>
+                            <select id="rolePerplexity" class="role-dropdown">
+                                {% for key, role in roles.items() %}
+                                <option value="{{ key }}" {% if defaults.perplexity==key %}selected{% endif %}>
+                                    {{ role.icon }} {{ role.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="input-actions">
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="vaultToggle">
-                        <span class="slider round"></span>
-                        <span class="toggle-label">Vault Context</span>
-                    </label>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="citationToggle">
-                        <span class="slider round"></span>
-                        <span class="toggle-label">Citations</span>
-                    </label>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="thoughtToggle">
-                        <span class="slider round"></span>
-                        <span class="toggle-label">Thoughts</span>
-                    </label>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="podcastToggle">
-                        <span class="slider round"></span>
-                        <span class="toggle-label">Podcast Mode</span>
-                    </label>
+                    <div class="switch-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="vaultToggle">
+                            <span class="slider round"></span>
+                            <span class="toggle-label">Vault Context</span>
+                        </label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="citationToggle">
+                            <span class="slider round"></span>
+                            <span class="toggle-label">Citations</span>
+                        </label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="thoughtToggle">
+                            <span class="slider round"></span>
+                            <span class="toggle-label">Thoughts</span>
+                        </label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="podcastToggle">
+                            <span class="slider round"></span>
+                            <span class="toggle-label">Podcast Mode</span>
+                        </label>
+                        <label class="toggle-switch council-switch">
+                            <input type="checkbox" id="councilToggle">
+                            <span class="slider round"></span>
+                            <span class="toggle-label">Council 🏛️</span>
+                        </label>
+                        <label class="toggle-switch" title="Total Persona Lockdown: 100% Rejection of Generic Fillers">
+                            <input type="checkbox" id="hardModeToggle">
+                            <span class="slider round"></span>
+                            <span class="toggle-label">Hard Mode ⚡</span>
+                        </label>
+                    </div>
+
                     <button id="micBtn" class="icon-button" title="Voice Input">
                         🎤
                     </button>
@@ -167,6 +309,44 @@
                         <span class="icon">⬇️</span> Export Report
                     </button>
                 </div>
+
+                <!-- Feedback Square -->
+                <div id="feedbackSquare" class="feedback-square hidden">
+                    <div class="feedback-header">
+                        <h4>⭐ How helpful was this analysis?</h4>
+                    </div>
+                    <div class="rating-options">
+                        <button class="rating-btn" data-rating="1" title="Not Helpful">😞</button>
+                        <button class="rating-btn" data-rating="2" title="Okay">😐</button>
+                        <button class="rating-btn" data-rating="3" title="Helpful">😊</button>
+                        <button class="rating-btn" data-rating="4" title="Excellent">🤩</button>
+                    </div>
+                    <div class="feedback-issues">
+                        <label class="issue-item">
+                            <input type="checkbox" name="too_generic">
+                            <span class="checkbox-custom"></span> Response was too generic
+                        </label>
+                        <label class="issue-item">
+                            <input type="checkbox" name="missing_details">
+                            <span class="checkbox-custom"></span> Missing technical details
+                        </label>
+                        <label class="issue-item">
+                            <input type="checkbox" name="wrong_roles">
+                            <span class="checkbox-custom"></span> Wrong role assignments
+                        </label>
+                        <label class="issue-item">
+                            <input type="checkbox" name="didnt_answer">
+                            <span class="checkbox-custom"></span> Didn't answer my question
+                        </label>
+                    </div>
+                    <div class="feedback-comment">
+                        <textarea id="feedbackText" placeholder="Optional: Add specific feedback..."></textarea>
+                    </div>
+                    <button id="submitFeedbackBtn" class="submit-feedback-btn">Submit Feedback</button>
+                    <div id="feedbackThanks" class="feedback-thanks hidden">
+                        <p>✨ Thank you for your feedback!</p>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -179,6 +359,14 @@
                         <div class="ai-info">
                             <h2 class="ai-name">OpenAI</h2>
                             <span class="ai-model" id="openai-model">GPT-4o</span>
+                            <span class="sandbag-badge hidden" id="openai-sandbag"
+                                title="Heavy reasoning detected in thoughts. The good stuff might be hidden!">🛸
+                                Sandbagging?</span>
+                            <span class="bias-badge hidden" id="openai-bias"></span>
+                        </div>
+                        <div class="card-rating" data-ai="openai">
+                            <button class="card-rate-btn up" title="Helpful answer">👍</button>
+                            <button class="card-rate-btn down" title="Generic or unhelpful">👎</button>
                         </div>
                         <div class="ai-meta">
                             <span class="cost-tag" id="openai-cost">$0.000</span>
@@ -214,6 +402,14 @@
                         <div class="ai-info">
                             <h2 class="ai-name">Anthropic</h2>
                             <span class="ai-model" id="anthropic-model">Claude Sonnet 4</span>
+                            <span class="sandbag-badge hidden" id="anthropic-sandbag"
+                                title="Heavy reasoning detected in thoughts. The good stuff might be hidden!">🛸
+                                Sandbagging?</span>
+                            <span class="bias-badge hidden" id="anthropic-bias"></span>
+                        </div>
+                        <div class="card-rating" data-ai="anthropic">
+                            <button class="card-rate-btn up" title="Helpful answer">👍</button>
+                            <button class="card-rate-btn down" title="Generic or unhelpful">👎</button>
                         </div>
                         <div class="ai-meta">
                             <span class="cost-tag" id="anthropic-cost">$0.000</span>
@@ -249,6 +445,14 @@
                         <div class="ai-info">
                             <h2 class="ai-name">Google</h2>
                             <span class="ai-model" id="google-model">Gemini 2.5</span>
+                            <span class="sandbag-badge hidden" id="google-sandbag"
+                                title="Heavy reasoning detected in thoughts. The good stuff might be hidden!">🛸
+                                Sandbagging?</span>
+                            <span class="bias-badge hidden" id="google-bias"></span>
+                        </div>
+                        <div class="card-rating" data-ai="google">
+                            <button class="card-rate-btn up" title="Helpful answer">👍</button>
+                            <button class="card-rate-btn down" title="Generic or unhelpful">👎</button>
                         </div>
                         <div class="ai-meta">
                             <span class="cost-tag" id="google-cost">$0.000</span>
@@ -284,6 +488,14 @@
                         <div class="ai-info">
                             <h2 class="ai-name">Perplexity</h2>
                             <span class="ai-model" id="perplexity-model">Sonar</span>
+                            <span class="sandbag-badge hidden" id="perplexity-sandbag"
+                                title="Heavy reasoning detected in thoughts. The good stuff might be hidden!">🛸
+                                Sandbagging?</span>
+                            <span class="bias-badge hidden" id="perplexity-bias"></span>
+                        </div>
+                        <div class="card-rating" data-ai="perplexity">
+                            <button class="card-rate-btn up" title="Helpful answer">👍</button>
+                            <button class="card-rate-btn down" title="Generic or unhelpful">👎</button>
                         </div>
                         <div class="ai-meta">
                             <span class="cost-tag" id="perplexity-cost">$0.000</span>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TriAI Learning Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--spacing-xl);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--spacing-lg);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            padding: var(--spacing-lg);
+            text-align: center;
+            border-radius: var(--radius-md);
+        }
+
+        .stat-value {
+            display: block;
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--accent-gold);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-size: 0.8rem;
+        }
+
+        .top-combos {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            padding: var(--spacing-lg);
+            border-radius: var(--radius-md);
+        }
+
+        .combo-item {
+            padding: var(--spacing-md);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .combo-info h3 {
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .combo-roles {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent-taupe);
+        }
+
+        .combo-rating {
+            text-align: right;
+        }
+
+        .rating-val {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--accent-gold);
+        }
+
+        .usage-val {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: var(--spacing-lg);
+            color: var(--accent-gold);
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <a href="/" class="back-link">← Back to Console</a>
+
+        <header class="header">
+            <h1 class="logo">
+                <span class="logo-tri">Tri</span><span class="logo-ai">AI</span>
+                <span class="logo-subtitle">Learning Dashboard</span>
+            </h1>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-value" id="totalQueries">--</span>
+                <span class="stat-label">Queries Analyzed</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="feedbackCount">--</span>
+                <span class="stat-label">Feedback Collected</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="avgSat">--</span>
+                <span class="stat-label">Avg Satisfaction</span>
+            </div>
+        </div>
+
+        <div class="top-combos">
+            <h2 style="margin-bottom: var(--spacing-lg); color: var(--accent-gold);">Top Performing Role Combinations
+            </h2>
+            <div id="comboList">
+                <div class="loading-text">Analyzing performance data...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadAnalytics() {
+            try {
+                const response = await fetch('/api/analytics');
+                const data = await response.json();
+
+                document.getElementById('totalQueries').textContent = data.total_queries;
+                document.getElementById('feedbackCount').textContent = data.total_feedback;
+                document.getElementById('avgSat').textContent = data.avg_satisfaction + '/4.0';
+
+                const comboList = document.getElementById('comboList');
+                comboList.innerHTML = '';
+
+                if (data.top_combinations.length === 0) {
+                    comboList.innerHTML = '<p style="color: var(--text-muted);">No feedback data collected yet.</p>';
+                } else {
+                    data.top_combinations.forEach(combo => {
+                        const el = document.createElement('div');
+                        el.className = 'combo-item';
+                        el.innerHTML = `
+                            <div class="combo-info">
+                                <h3>${combo.category}</h3>
+                                <div class="combo-roles">
+                                    GPT: ${combo.roles.gpt} | 
+                                    Claude: ${combo.roles.claude} | 
+                                    Gemini: ${combo.roles.gemini} | 
+                                    Perplexity: ${combo.roles.perplexity}
+                                </div>
+                            </div>
+                            <div class="combo-rating">
+                                <div class="rating-val">${combo.rating}/4.0</div>
+                                <div class="usage-val">${combo.count} successful queries</div>
+                            </div>
+                        `;
+                        comboList.appendChild(el);
+                    });
+                }
+            } catch (err) {
+                console.error('Analytics Error:', err);
+            }
+        }
+        loadAnalytics();
+    </script>
+</body>
+
+</html>

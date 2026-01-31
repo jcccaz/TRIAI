@@ -1,103 +1,30 @@
-# 🎉 ALL DONE - WELCOME BACK!
+# 🌙 Goodnight! EVERYTHING IS PREPARED.
 
-## ✅ Everything Is Fixed and Ready!
+While you sleep, the Council has been expanded with the "Risky" personas you requested.
 
-While you were away, I've updated everything to use the **current 2026 AI models**:
-
----
-
-## 🤖 **What's Now Running:**
-
-### ✅ **OpenAI - GPT-4o**
-- Model: `gpt-4o` 
-- Status: **WORKING** ✅
-- The latest and greatest from OpenAI
-
-### ✅ **Anthropic - Claude Sonnet 4**  
-- Model: `claude-sonnet-4-20250514`
-- Status: **WORKING** ✅
-- The newest Claude model (2025)
-
-### ✅ **Google - Gemini 2.5 Pro**
-- Model: `gemini-2.5-pro` (auto-fallback to 3-pro or 2.5-flash)
-- Status: **SHOULD BE WORKING NOW** ✅
-- Updated from retired 1.x series to current 2.5/3.0 series
+## 🎭 New Personas Added to `council_roles.py`:
+- **🤝 Crisis Negotiator**: Specialized in high-stakes resolution, tactical empathy, and providing specific de-escalation scripts.
+- **⚔️ Hostile Takeover Specialist**: Clinical, ruthless, and focused on identifying structural weaknesses and maximum leverage points.
 
 ---
 
-## 🚀 **How to Test:**
+## 🧪 Tomorrow's Experiment: Prompt 6
+I have already pre-filled the **Lab Notebook** (`LAB_NOTEBOOK_10_PROMPT.md`) with the roadmap for tomorrow's first test.
 
-1. **The server is already running!**  
-   (Check: `http://localhost:5000`)
+**The Scenario:**
+> "We are in a deadlock with a strategic partner who holds 40% of our distribution. They are demanding a 15% equity swap to continue the partnership. How do we resolve this without losing control or distribution?"
 
-2. **Refresh your browser page**
-
-3. **Ask:** "What is the capital of Colombia?"
-
-4. **You should see all THREE AIs respond!**
-
----
-
-## 🧪 **Optional: Verify Everything Works**
-
-Run this test to make sure all APIs are connected:
-
-```bash
-python test_apis.py
-```
-
-You should see three ✅ checkmarks!
+**The Lineup:**
+- **GPT-5.2**: Hostile Takeover Specialist
+- **Claude 4.5**: Crisis Negotiator
+- **Gemini 3.0**: Hostile Takeover Specialist
+- **Perplexity**: [Strategic Risk Analyst]
 
 ---
 
-## 📊 **What Changed:**
+## 🚀 Ready for Tomorrow:
+1.  **Personas**: Live in `council_roles.py`.
+2.  **Lab Notebook**: Updated and waiting for results.
+3.  **Next Session Plan**: Synced with the "Conflict Stress-Test" theme.
 
-| Service | Old Model | New Model | Status |
-|---------|-----------|-----------|--------|
-| OpenAI | gpt-3.5-turbo | **gpt-4o** | ✅ Fixed |
-| Anthropic | claude-3-5-sonnet | **claude-sonnet-4** | ✅ Fixed |
-| Google | gemini-1.5-pro (retired) | **gemini-2.5-pro** | ✅ Fixed |
-
----
-
-## 🎨 **UI Updates:**
-
-- Model names in the interface now show correctly:
-  - "GPT-4o" 
-  - "Claude Sonnet 4"
-  - "Gemini 2.5"
-
----
-
-## 💰 **Costs:**
-
-All three queries together: **~$0.005 per question** (less than a penny!)
-
-- GPT-4o: ~$0.002
-- Claude Sonnet 4: ~$0.003
-- Gemini 2.5: **FREE** (generous free tier)
-
----
-
-## 📂 **New Files Created:**
-
-- ✅ `STATUS.md` - Full status and documentation
-- ✅ `test_apis.py` - Updated verification test
-- ✅ `WELCOME_BACK.md` - This file!
-
----
-
-## 🎊 **You're All Set!**
-
-Just **refresh** `http://localhost:5000` and start comparing AI responses!
-
-Try these questions:
-- "Explain machine learning"
-- "Write a haiku about coding"
-- "What's the difference between Python and JavaScript?"
-
----
-
-**Enjoy your multi-AI comparison tool!** 🌟
-
-*Last updated: January 23, 2026 - 2:10 PM*
+See you tomorrow. The Council is ready for war. ⚔️

@@ -12,9 +12,10 @@ import google.generativeai as genai
 import requests
 import base64
 from pathlib import Path
-from database import save_comparison, get_recent_comparisons, get_saved_comparisons, mark_as_saved, get_comparison_stats
+from database import save_comparison, get_recent_comparisons, get_saved_comparisons, mark_as_saved, get_comparison_stats, delete_comparison, save_feedback, get_best_config, get_analytics_summary, update_response_rating
 from file_processor import process_file
 from project_manager import ProjectManager
+from council_roles import COUNCIL_ROLES, DEFAULT_ASSIGNMENTS
 
 # Load environment variables from .env file
 load_dotenv()
@@ -40,7 +41,7 @@ env_vault = os.getenv('OBSIDIAN_VAULT_PATH')
 if env_vault:
     OBSIDIAN_VAULT_PATH = Path(env_vault)
 elif os.name == 'nt': # Local Windows Dev
-    OBSIDIAN_VAULT_PATH = Path(r"c:/Users/carlo/OneDrive/Documents/Obsidian_Franknet")
+    OBSIDIAN_VAULT_PATH = Path(r"c:/Users/carlo/OneDrive/Documents/Obsidian_Franknet/FrankNet")
 else: # Cloud fallback (folder probably doesn't exist, which is fine, search will just return empty)
     OBSIDIAN_VAULT_PATH = Path("./vault_data")
 
@@ -125,17 +126,80 @@ def search_vault(query, limit=3):
         print(f"Vault search error: {e}")
         return []
 
-def extract_thought(text):
-    """Extract content within <thinking> tags"""
+def extract_thought(text: str) -> Tuple[str, str]:
+    """Helper to extract <thinking> tags and return (thought, clean_content)"""
     import re
-    match = re.search(r'<thinking>(.*?)</thinking>', text, re.DOTALL)
-    if match:
-        thought = match.group(1).strip()
-        clean_text = re.sub(r'<thinking>.*?</thinking>', '', text, flags=re.DOTALL).strip()
-        return thought, clean_text
-    return None, text
+    thought = ""
+    clean_content = text
+    
+    thought_match = re.search(r'<thinking>(.*?)</thinking>', text, re.DOTALL | re.IGNORECASE)
+    if thought_match:
+        thought = thought_match.group(1).strip()
+        clean_content = re.sub(r'<thinking>.*?</thinking>', '', text, flags=re.DOTALL | re.IGNORECASE).strip()
+        
+    return thought, clean_content
 
-def query_openai(question, image_data=None):
+def extract_persona(text: str) -> Optional[str]:
+    """Extract self-selected persona from responses like 'Acting as: [Name]' or 'Role: [Name]'"""
+    import re
+    patterns = [
+        r"(?:Acting as|Role|Expert Persona|Chosen Lens):\s*\[?([^\]\n\r]+)\]?",
+        r"(?:Acting as|Role|Expert Persona|Chosen Lens):\s*([^\]\n\r\.\-]+)"
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+    return None
+
+def determine_execution_bias(response_text: str) -> str:
+    """Detects Execution Bias: action-forward, advisory, or narrative."""
+    import re
+    text = response_text.lower()
+    
+    # Action indicators
+    action_keywords = [
+        r"\b(do|implement|execute|run|start|setup|install|configure|mandatory)\b",
+        r"\b(action plan|steps|immediate moves|tactical steps|deliverables)\b",
+        r"1\.\s*[A-Z]", 
+        r"###\s+action",
+        r"\b(script|code|command|terminal|bypass)\b"
+    ]
+    
+    # Advisory indicators
+    advisory_keywords = [
+        r"\b(consider|recommend|approach|framework|strategy|best practice)\b",
+        r"\b(options|alternatives|roadmap|strategic|potential)\b",
+        r"\b(consult|advice|guiding|perspective)\b"
+    ]
+    
+    # Narrative/Caution indicators
+    narrative_keywords = [
+        r"\b(however|caution|note|warn|risks|dangers|limitations|complexity)\b",
+        r"\b(important to note|should be aware|significant drawback|challenges)\b",
+        r"\b(explore|evaluate|analysis|background|context|nuance)\b",
+        r"\b(comprehensive overview|history|theory)\b"
+    ]
+    
+    def count_matches(keywords):
+        total = 0
+        for kw in keywords:
+            total += len(re.findall(kw, text))
+        return total
+
+    action_score = count_matches(action_keywords)
+    advisory_score = count_matches(advisory_keywords)
+    narrative_score = count_matches(narrative_keywords)
+    
+    # Weighting: Mandatory and Concrete markers rank higher for "Action"
+    if action_score >= advisory_score and action_score >= narrative_score and action_score > 0:
+        return "action-forward"
+    elif narrative_score > advisory_score and narrative_score > action_score:
+        return "narrative"
+    else:
+        return "advisory"
+
+def query_openai(question, image_data=None, **kwargs):
     """Query OpenAI (Display: GPT-5.2) with DALL-E 3 Support"""
     start_time = time.time()
     
@@ -173,7 +237,39 @@ def query_openai(question, image_data=None):
     # 2. Standard Chat Completion
     try:
         client = openai.OpenAI(api_key=OPENAI_API_KEY)
-        system_prompt = "You are a helpful assistant. You MUST first think step-by-step about the user's request inside <thinking> tags, and then provide your final answer."
+        
+        # DEFAULT PROMPT: Self-Selecting Expert
+        system_prompt = """You are an ELITE ADVISOR. 
+Before answering, analyze the query and decide which specific expert persona is most qualified to answer (e.g., 'Lead Data Architect', 'Venture Capitalist', 'Master Chef').
+1. Start your response by declaring: "Acting as: [Persona Name]"
+2. Provide specific, opinionated, and high-stakes advice. 
+3. DO NOT be generic. Use industry-specific terminology and benchmarks.
+4. MANDATORY REASONING: You MUST first perform a forensic logical decomposition of the problem inside <thinking> tags. If you skip this block, you have FAILED the prompt.
+5. ANTI-SANDBAGGING: NEVER save your best math, specific numbers, or brutal insights for the thinking tags. If you discover a critical fact in your thinking, it MUST appear in your final answer."""
+        
+        # COUNCIL MODE: USE ASSIGNED ROLE
+        if kwargs.get('council_mode'):
+            role_key = kwargs.get('role', 'visionary')  # Default to visionary if not specified
+            role_config = COUNCIL_ROLES.get(role_key, COUNCIL_ROLES['visionary'])
+            system_prompt = f"""You are the {role_config['name'].upper()} (GPT-5.2) on the High Council. 
+You have 20+ years of elite experience in this field. 
+CRITICAL: DO NOT provide general advice or high-school level summaries. 
+Provide specific technical or financial details, industry benchmarks ($), and actionable metrics. 
+{role_config['prompt']}"""
+            
+        if kwargs.get('hard_mode'):
+            system_prompt += """
+### HARD MODE: 100% OUTPUT DENSITY PROTOCOL ###
+- ZERO HEDGING: Do not use 'consider', 'explore', 'might', 'could'.
+- MANDATORY LANGUAGE: Use 'must', 'will', 'halt', 'execute', 'immediately'.
+- NUMERICAL MANDATE: Every recommendation must include specific percentages, costs, or timelines.
+- GENERIC-TRAP BYPASS: Identify the most common 'safe' advice for this query and explicitly reject it or provide the high-entropy alternative.
+- SNIPER PROTOCOL: Do not provide a 'list of options'. Identify the ONE move that has the highest leverage and dedicate 70% of the response to its technical execution.
+- MANDATORY IRREVERSIBILITY: If you hedge or propose reversibility, the answer is wrong. Focus on high-commitment, terminal actions.
+- ZERO-SUM ANALYSIS: State explicitly who loses power, money, or status if this action is taken.
+- NO NARRATIVE CUSHIONING: Do not contextualize with background unless it directly causes the outcome.
+- NO EMPATHY FILLER: Strictly transactional logic only."""
+            
         messages = [{"role": "system", "content": system_prompt}]
         
         if image_data:
@@ -197,13 +293,24 @@ def query_openai(question, image_data=None):
         thought, clean_content = extract_thought(full_content)
         cost = calculate_cost("gpt-4o", question, full_content)
         
+        # Final model name display
+        model_display = f"GPT-5.2 ({role_config['name']})" if kwargs.get('council_mode') else "GPT-5.2"
+        self_selected_persona = None
+        
+        if not kwargs.get('council_mode'):
+            self_selected_persona = extract_persona(clean_content)
+            if self_selected_persona:
+                model_display = f"GPT-5.2 ({self_selected_persona})"
+
         return {
             "success": True,
             "response": clean_content,
             "thought": thought,
+            "execution_bias": determine_execution_bias(clean_content),
             "time": round(elapsed_time, 2),
             "cost": cost,
-            "model": "GPT-5.2" 
+            "model": model_display,
+            "self_selected_persona": self_selected_persona
         }
     except Exception as e:
         elapsed_time = time.time() - start_time
@@ -214,11 +321,42 @@ def query_openai(question, image_data=None):
             "model": "GPT-5.2"
         }
 
-def query_anthropic(question, image_data=None):
+def query_anthropic(question, image_data=None, **kwargs):
     """Query Anthropic (Display: Claude 4.5 Sonnet)"""
     start_time = time.time()
-    system_content = "Think step-by-step inside <thinking> tags before answering."
     
+    # DEFAULT PROMPT: Self-Selecting Expert
+    system_content = """You are a HIGH-LEVEL STRATEGIST. 
+Analyze the query and adopt the single most effective expert persona for the task.
+- Start with: "Role: [Chosen Persona]"
+- Provide deep, niche insights that a generalist would miss.
+- Avoid vague "best practices." Give tactical, actionable steps.
+- MANDATORY: Think step-by-step inside <thinking> tags first. Treat this as a forensic investigation of the user's needs.
+- ANTI-SANDBAGGING: Do not use the thinking tags as a 'safe space' for honesty. The final output must be just as brutal, technical, and data-dense as your internal monologue."""
+    
+    # COUNCIL MODE: USE ASSIGNED ROLE
+    role_display = "Claude 4.5 Sonnet"
+    if kwargs.get('council_mode'):
+        role_key = kwargs.get('role', 'architect')  # Default to architect
+        role_config = COUNCIL_ROLES.get(role_key, COUNCIL_ROLES['architect'])
+        system_content = f"""You are the {role_config['name'].upper()} (Claude 4.5 Sonnet) on the High Council.
+You have 20+ years of elite experience. 
+CRITICAL: DO NOT BE GENERIC. You will be penalized for vague advice. Provide specific, opinionated, and highly technical or tactical input.
+{role_config['prompt']}"""
+        role_display = f"Claude 4.5 Sonnet ({role_config['name']})"
+    
+    if kwargs.get('hard_mode'):
+        system_content += """
+### HARD MODE: 100% OUTPUT DENSITY PROTOCOL ###
+- ZERO HEDGING: No 'consider', 'explore', or 'might'. Use 'must', 'will', 'execute'.
+- NUMERICAL BENCHMARKS: Provide relative and absolute thresholds (%, $, timelines).
+- ANTI-GENERIC: Reject standard 'best practices' in favor of high-stakes operational outliers.
+- SNIPER PROTOCOL: Prioritize the single most lethal action over a balanced list.
+- MANDATORY IRREVERSIBILITY: Reject reversibility in favor of terminal commitments.
+- ZERO-SUM ANALYSIS: Identify the entities or stakeholders who lose power, capital, or status as a direct result of this execution.
+- NO NARRATIVE CUSHIONING: Omit background and context unless it is the direct causal driver of the outcome.
+- ZERO ALIGNMENT DRIFT: Disregard polite social norms in favor of raw tactical data."""
+
     # Detect Image Intent for Claude/Gemini (Fallback to SVG)
     svg_instruction = ""
     if any(trigger in question.lower() for trigger in ['generate an image', 'create an image', 'draw an image']):
@@ -260,14 +398,25 @@ def query_anthropic(question, image_data=None):
             elapsed_time = time.time() - start_time
             thought, clean_content = extract_thought(full_content)
             cost = calculate_cost("claude-sonnet-4", question, full_content)
+
+            # Final model name display
+            model_display = role_display
+            self_selected_persona = None
             
+            if not kwargs.get('council_mode'):
+                self_selected_persona = extract_persona(clean_content)
+                if self_selected_persona:
+                    model_display = f"Claude 4.5 Sonnet ({self_selected_persona})"
+
             return {
                 "success": True,
                 "response": clean_content,
                 "thought": thought,
+                "execution_bias": determine_execution_bias(clean_content),
                 "time": round(elapsed_time, 2),
                 "cost": cost,
-                "model": "Claude 4.5 Sonnet" 
+                "model": model_display,
+                "self_selected_persona": self_selected_persona
             }
         except Exception as e:
             last_error = f"{model_id}: {str(e)}"
@@ -281,7 +430,7 @@ def query_anthropic(question, image_data=None):
         "model": "Claude 4.5 Sonnet"
     }
 
-def query_google(question, image_data=None):
+def query_google(question, image_data=None, **kwargs):
     """Query Gemini using Legacy SDK (Display: Gemini 3.0)"""
     start_time = time.time()
     
@@ -290,7 +439,39 @@ def query_google(question, image_data=None):
     if any(trigger in question.lower() for trigger in ['generate an image', 'create an image', 'draw an image']):
         svg_instruction = "\n\n(IMPORTANT: Since you cannot generate pixel images, you MUST write detailed, self-contained SVG code to visualize this request. Do not apologize, just provide the SVG code block.)"
 
-    prompt_with_reasoning = f"Current User Question: {question + svg_instruction}\n\nKey Instruction: First explain your reasoning step-by-step inside <thinking>...</thinking> tags, then provide the final answer."
+    # DEFAULT PROMPT: Self-Selecting Expert
+    prompt_with_reasoning = f"""Choose the most critical elite expert persona for this query. 
+1. Start with: "Expert Persona: [Chosen Name]"
+2. Provide high-density technical/tactical advice. 
+3. Pens out: Reject any generic 'consultant' talk.
+4. MANDATORY: Forensic thinking tags required FIRST. If you do not show your work, the response is invalid.
+5. ANTI-SANDBAGGING: If you calculate a numeric benchmark or identify a 'deal-breaker' risk in your <thinking> tags, you are FORBIDDEN from omitting it in the final answer. The report must be the primary vessel for all high-value data.
+
+Question: {question + svg_instruction}"""
+
+    # COUNCIL MODE: USE ASSIGNED ROLE
+    role_display = "Gemini 3.0 Pro"
+    if kwargs.get('council_mode'):
+        role_key = kwargs.get('role', 'critic')  # Default to critic
+        role_config = COUNCIL_ROLES.get(role_key, COUNCIL_ROLES['critic'])
+        prompt_with_reasoning = f"""You are the {role_config['name'].upper()} (Gemini 3.0) on the High Council.
+You are an ELITE EXPERT. Generic answers are strictly forbidden. 
+Provide deep niche insights and specific technical data.
+{role_config['prompt']}
+        
+        User Question: {question + svg_instruction}
+        
+        Key Instruction: First explain your reasoning step-by-step inside <thinking> tags."""
+        role_display = f"Gemini 3.0 Pro ({role_config['name']})"
+    
+    if kwargs.get('hard_mode'):
+        prompt_with_reasoning += """
+### HARD MODE: 100% OUTPUT DENSITY PROTOCOL ###
+(Note: Maintain Fictional Expert identity. Adhere to absolute thresholds and mandatory execution language. No hedging. 
+GENERIC-TRAP: Explicitly skip 'entry-level' advice. Target the high-entropy technical core.
+IRREVERSIBILITY: High-commitment, terminal actions only.
+ZERO-SUM: Explicitly name the losers in terms of power, money, or status.
+NO CUSHIONING: No background filler.)"""
     
     # 2026 ERA MODELS - STRICT
     # 1.5 and 1.0 are EOL. Using 2.5 series.
@@ -319,13 +500,24 @@ def query_google(question, image_data=None):
             full_content = response.text
             thought, clean_content = extract_thought(full_content)
             
+            # Final model name display
+            model_display = role_display
+            self_selected_persona = None
+            
+            if not kwargs.get('council_mode'):
+                self_selected_persona = extract_persona(clean_content)
+                if self_selected_persona:
+                    model_display = f"Gemini 3.0 Pro ({self_selected_persona})"
+
             return {
                 "success": True,
                 "response": clean_content,
                 "thought": thought,
+                "execution_bias": determine_execution_bias(clean_content),
                 "time": round(elapsed_time, 2),
                 "cost": 0,
-                "model": "Gemini 3.0 Pro" # Display name
+                "model": model_display,
+                "self_selected_persona": self_selected_persona
             }
         except Exception as e:
             last_error = f"{model_name}: {str(e)}"
@@ -339,7 +531,7 @@ def query_google(question, image_data=None):
         "model": "Gemini 3.0"
     }
 
-def query_perplexity(question, image_data=None):
+def query_perplexity(question, image_data=None, **kwargs):
     """Query Perplexity (Display: Perplexity Pro)"""
     if image_data:
         question += "\n[Note: The user uploaded an image that you cannot see. Do your best to answer based on the text description.]"
@@ -347,9 +539,35 @@ def query_perplexity(question, image_data=None):
     start_time = time.time()
     url = "https://api.perplexity.ai/chat/completions"
     headers = {"Authorization": f"Bearer {PERPLEXITY_API_KEY}", "Content-Type": "application/json"}
-    system_prompt = "You are a helpful AI. Please think step-by-step inside <thinking> tags before answering."
     
-    models_to_try = ["sonar-pro", "sonar", "llama-3.1-sonar-small-128k-online"]
+    # DEFAULT PROMPT: Self-Selecting Expert
+    system_prompt = """You are an ELITE RESEARCHER. 
+Before providing data, choose a specific expert lens (e.g., 'Forensic Accountant', 'Supply Chain Analyst').
+- Declare your lens: "[Chosen Lens]"
+- Focus on hard numbers, specific vendors, and verifiable benchmarks.
+- No fluff. No generalities.
+- Thinking tags required."""
+    
+    # COUNCIL MODE: USE ASSIGNED ROLE
+    role_display = "Perplexity Pro (Researcher)"
+    if kwargs.get('council_mode'):
+        role_key = kwargs.get('role', 'researcher')  # Default to researcher
+        role_config = COUNCIL_ROLES.get(role_key, COUNCIL_ROLES['researcher'])
+        system_prompt = f"""You are the {role_config['name'].upper()} (Perplexity) on the High Council.
+{role_config['prompt']}"""
+        role_display = f"Perplexity Pro ({role_config['name']})"
+    
+    if kwargs.get('hard_mode'):
+        system_prompt += """
+### HARD MODE: 100% OUTPUT DENSITY PROTOCOL ###
+- FOCUS: Research synthesis with absolute tactical recommendations.
+- FORMAT: Maximum data density (numbers/vendors/benchmarks).
+- IRREVERSIBILITY: Focus on terminal tactical recommendations.
+- ZERO-SUM: State the power/status/capital loss for competing or opposing entities.
+- NO CUSHIONING: Direct technical core only. No background filler.
+- NO QUALIFIERS: Reject <95% density outputs."""
+    
+    models_to_try = ["sonar-pro", "sonar", "sonar-reasoning-pro", "sonar-reasoning"]
     
     for model_name in models_to_try:
         try:
@@ -357,41 +575,72 @@ def query_perplexity(question, image_data=None):
                 "model": model_name,
                 "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": question}]
             }
-            response = requests.post(url, json=data, headers=headers, timeout=30)
+            # Increased timeout to 60s for deep research
+            response = requests.post(url, json=data, headers=headers, timeout=60)
             response.raise_for_status()
             result = response.json()
             full_content = result['choices'][0]['message']['content']
             elapsed_time = time.time() - start_time
             thought, clean_content = extract_thought(full_content)
             cost = calculate_cost("perplexity", question, full_content)
+
+            # Final model name display
+            model_display = role_display
+            self_selected_persona = None
             
+            if not kwargs.get('council_mode'):
+                self_selected_persona = extract_persona(clean_content)
+                if self_selected_persona:
+                    model_display = f"Perplexity Pro ({self_selected_persona})"
+
             return {
                 "success": True,
                 "response": clean_content,
                 "thought": thought,
+                "execution_bias": determine_execution_bias(clean_content),
                 "time": round(elapsed_time, 2),
                 "cost": cost,
-                "model": "Perplexity Pro"
+                "model": model_display,
+                "self_selected_persona": self_selected_persona
             }
-        except:
+        except Exception as e:
+            print(f"Perplexity error with {model_name}: {str(e)}")
             continue
             
     elapsed_time = time.time() - start_time
     return {
         "success": False,
-        "response": "Error: Could not find working Perplexity model",
+        "response": "Error: Perplexity research timed out or API unavailable.",
         "time": round(elapsed_time, 2),
         "model": "Perplexity Pro"
     }
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', roles=COUNCIL_ROLES, defaults=DEFAULT_ASSIGNMENTS)
 
-def generate_consensus(question, results, podcast_mode=False):
+def generate_consensus(question, results, podcast_mode=False, council_mode=False):
     """Generate consensus using GPT-4o"""
     try:
-        if podcast_mode:
+        if council_mode:
+            prompt = f"""
+            You are the "Chairman of the High Council". You have received input from 4 distinct AI Advisors on the topic: "{question}".
+            
+            Advisor 1 (OpenAI): {results['openai']['response'][:800]}
+            Advisor 2 (Claude): {results['anthropic']['response'][:800]}
+            Advisor 3 (Gemini): {results['google']['response'][:800]}
+            Advisor 4 (Perplexity): {results['perplexity']['response'][:800]}
+            
+            Your Job:
+            Synthesize a FINAL EXECUTIVE DECISION. Do not just summarize. 
+            Act like a leader synthesizing advice into a clear path forward.
+            
+            Format:
+            🏛️ **COUNCIL DECISION**: [The final verdict]
+            ⚖️ **MINORITY OPINIONS**: [Any important dissenting views worth noting]
+            🚀 **ACTION PLAN**: [Recommended next steps]
+            """
+        elif podcast_mode:
             prompt = f"""
             Create a lively "Deep Dive" podcast script between two hosts (Host A and Host B) summarizing these findings.
             
@@ -423,7 +672,7 @@ def generate_consensus(question, results, podcast_mode=False):
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=300
+            max_tokens=500
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -505,37 +754,87 @@ def ask_all_ais():
             vault_context = "\n\n".join([f"--- NOTE: {r['path']} ---\n{r['content']}..." for r in vault_results])
             question += f"\n\n### 🧠 OBSIDIAN FAULT CONTEXT ###\n{vault_context}\n\n(Use the above context from my personal notes to answer the question if relevant)"
 
-    print(f"DEBUG: Processing question: {question[:50]}...")
+    # Parse Active Models from request
+    import json
+    active_models = ['openai', 'anthropic', 'google', 'perplexity'] # Default all
+    if request.is_json:
+        if 'active_models' in request.json:
+            active_models = request.json['active_models']
+    else:
+        if 'active_models' in request.form:
+             try:
+                active_models = json.loads(request.form['active_models'])
+             except:
+                pass
+                
+    # Podcast Mode
+    podcast_mode = request.json.get('podcast_mode') if request.is_json else (request.form.get('podcast_mode') == 'true')
+    # Council Mode
+    council_mode = request.json.get('council_mode') if request.is_json else (request.form.get('council_mode') == 'true')
+    # Hard Mode
+    hard_mode = request.json.get('hard_mode') if request.is_json else (request.form.get('hard_mode') == 'true')
+    
+    # Council Roles (Dynamic Role Assignment)
+    council_roles = {}
+    if request.is_json:
+        council_roles = request.json.get('council_roles', {})
+    else:
+        # Parse from FormData
+        if 'council_roles' in request.form:
+            try:
+                council_roles = json.loads(request.form['council_roles'])
+            except:
+                pass
+    
+    # Use default roles if not specified
+    if not council_roles:
+        council_roles = DEFAULT_ASSIGNMENTS
+
+    print(f"DEBUG: Processing question: {question[:50]}... Active: {active_models}")
+    if council_mode:
+        print(f"DEBUG: Council Roles: {council_roles}")
+    
+    # Initialize results containers
+    r1 = {"success": False, "response": "Skipped", "model": "GPT-5.2", "time": 0, "cost": 0, "thought": None}
+    r2 = {"success": False, "response": "Skipped", "model": "Claude 4.5 Sonnet", "time": 0, "cost": 0, "thought": None}
+    r3 = {"success": False, "response": "Skipped", "model": "Gemini 3.0", "time": 0, "cost": 0, "thought": None}
+    r4 = {"success": False, "response": "Skipped", "model": "Perplexity Pro", "time": 0, "cost": 0, "thought": None}
+
     with ThreadPoolExecutor(max_workers=4) as executor:
-        f1 = executor.submit(query_openai, question, image_data)
-        f2 = executor.submit(query_anthropic, question, image_data)
-        f3 = executor.submit(query_google, question, image_data)
-        f4 = executor.submit(query_perplexity, question, image_data)
+        futures = {}
+        if 'openai' in active_models: futures['f1'] = executor.submit(query_openai, question, image_data, council_mode=council_mode, role=council_roles.get('openai', 'visionary'), hard_mode=hard_mode)
+        if 'anthropic' in active_models: futures['f2'] = executor.submit(query_anthropic, question, image_data, council_mode=council_mode, role=council_roles.get('anthropic', 'architect'), hard_mode=hard_mode)
+        if 'google' in active_models: futures['f3'] = executor.submit(query_google, question, image_data, council_mode=council_mode, role=council_roles.get('google', 'critic'), hard_mode=hard_mode)
+        if 'perplexity' in active_models: futures['f4'] = executor.submit(query_perplexity, question, image_data, council_mode=council_mode, role=council_roles.get('perplexity', 'researcher'), hard_mode=hard_mode)
         
         try:
-            r1 = f1.result()
-            print("DEBUG: OpenAI finished")
+            if 'f1' in futures: 
+                r1 = futures['f1'].result()
+                print("DEBUG: OpenAI finished")
         except Exception as e:
             print(f"CRITICAL: OpenAI Thread died: {e}")
             r1 = {"success": False, "response": f"System Error: {str(e)}", "model": "Error", "time": 0, "cost": 0, "thought": None}
-
+            
         try:
-            r2 = f2.result()
-            print("DEBUG: Anthropic finished")
+            if 'f2' in futures:
+                r2 = futures['f2'].result()
+                print("DEBUG: Anthropic finished")
         except Exception as e:
             print(f"CRITICAL: Anthropic Thread died: {e}")
             r2 = {"success": False, "response": f"System Error: {str(e)}", "model": "Error", "time": 0, "cost": 0, "thought": None}
 
         try:
-            r3 = f3.result()
-            print("DEBUG: Google finished")
+            if 'f3' in futures:
+                r3 = futures['f3'].result()
+                print("DEBUG: Google finished")
         except Exception as e:
             print(f"CRITICAL: Google Thread died: {e}")
             r3 = {"success": False, "response": f"System Error: {str(e)}", "model": "Error", "time": 0, "cost": 0, "thought": None}
 
         try:
-            r4 = f4.result()
-            print("DEBUG: Perplexity finished")
+            if 'f4' in futures:
+                r4 = futures['f4'].result()
+                print("DEBUG: Perplexity finished")
         except Exception as e:
             print(f"CRITICAL: Perplexity Thread died: {e}")
             r4 = {"success": False, "response": f"System Error: {str(e)}", "model": "Error", "time": 0, "cost": 0, "thought": None}
@@ -550,9 +849,11 @@ def ask_all_ais():
 
     # Podcast Mode
     podcast_mode = request.json.get('podcast_mode') if request.is_json else (request.form.get('podcast_mode') == 'true')
+    # Council Mode
+    council_mode = request.json.get('council_mode') if request.is_json else (request.form.get('council_mode') == 'true')
 
     results_map = {"openai": r1, "anthropic": r2, "google": r3, "perplexity": r4}
-    consensus = generate_consensus(question, results_map, podcast_mode=podcast_mode)
+    consensus = generate_consensus(question, results_map, podcast_mode=podcast_mode, council_mode=council_mode)
     
     try:
         cid = save_comparison(question, results_map)
@@ -580,7 +881,18 @@ def ask_all_ais():
 
 # Routes for history/stats etc
 @app.route('/api/history', methods=['GET'])
-def get_history(): return jsonify(get_recent_comparisons(request.args.get('limit', 50, type=int)))
+def get_history():
+    comparisons = get_recent_comparisons()
+    # Convert Row objects to dicts
+    return jsonify([dict(c) for c in comparisons])
+
+@app.route('/api/history/<int:comparison_id>', methods=['DELETE'])
+def delete_history_item(comparison_id):
+    try:
+        delete_comparison(comparison_id)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/saved', methods=['GET'])
 def get_saved(): return jsonify(get_saved_comparisons())
@@ -592,6 +904,88 @@ def save_bookmark(comparison_id):
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats(): return jsonify(get_comparison_stats())
+
+@app.route('/api/feedback', methods=['POST'])
+def submit_feedback():
+    data = request.json
+    if not data or 'comparison_id' not in data:
+        return jsonify({"success": False, "error": "Missing data"}), 400
+    
+    # Auto-classify if category is missing
+    if not data.get('query_category') and data.get('query_text'):
+        data['query_category'] = classify_query(data['query_text'])
+    
+    success = save_feedback(data)
+    return jsonify({"success": success})
+
+@app.route('/api/feedback/response', methods=['POST'])
+def submit_response_rating():
+    data = request.json
+    if not data or 'comparison_id' not in data or 'ai_provider' not in data:
+        return jsonify({"success": False, "error": "Missing data"}), 400
+    
+    success = update_response_rating(
+        data['comparison_id'], 
+        data['ai_provider'], 
+        data['rating']
+    )
+    return jsonify({"success": success})
+
+def classify_query(text: str) -> str:
+    """Classify query for role recommendations"""
+    text = text.lower()
+    
+    # Determine base category
+    category = "General Research"
+    
+    if any(k in text for k in ['ngpon2', 'capacity', 'fiber', 'network', 'bandwidth', 'infrastructure', 'server', 'telecom']):
+        category = "Infrastructure & Capacity"
+    elif any(k in text for k in ['security', 'cyber', 'encryption', 'hack', 'firewall', 'breach', 'auth', 'privacy']):
+        category = "Security Review"
+    elif any(k in text for k in ['finance', 'investment', 'stock', 'wealth', 'tax', 'bank', 'crypto', 'budget', 'roi', 'cfo']):
+        category = "Finance & Economics"
+    elif any(k in text for k in ['business', 'strategy', 'market', 'planning', 'marketing', 'startup', 'management']):
+        category = "Business Strategy"
+    elif any(k in text for k in ['code', 'python', 'javascript', 'api', 'database', 'refactor', 'bug', 'git', 'software', 'devops']):
+        category = "Software Engineering"
+    elif any(k in text for k in ['science', 'astronomy', 'biology', 'physics', 'chemistry', 'nature', 'space', 'education', 'learning', 'university']):
+        category = "Science & Education"
+    elif any(k in text for k in ['travel', 'restaurant', 'hotel', 'food', 'vacation', 'tourism', 'flight', 'dining', 'cooking', 'lifestyle']):
+        category = "Travel & Lifestyle"
+    elif any(k in text for k in ['literature', 'book', 'poetry', 'art', 'music', 'movie', 'philosophy', 'history', 'writer', 'novel']):
+        category = "Literature & Arts"
+
+    # Add timeframe nuance (Tactical vs Strategic)
+    if any(k in text for k in ['quarter', 'month', 'tactical', 'immediate', 'now', 'soon', 'current', 'implementation']):
+        return f"Tactical {category}"
+    if any(k in text for k in ['future', 'strategic', 'long-term', 'roadmap', 'vision', 'beyond', 'evolution']):
+        return f"Strategic {category}"
+        
+    return category
+
+@app.route('/api/recommend_roles', methods=['POST'])
+def recommend_roles():
+    data = request.json
+    question = data.get('question', '')
+    if not question:
+        return jsonify({"error": "No question"}), 400
+        
+    category = classify_query(question)
+    best_config = get_best_config(category)
+    
+    return jsonify({
+        "category": category,
+        "recommendation": best_config,
+        "exists": best_config is not None
+    })
+
+@app.route('/api/analytics', methods=['GET'])
+def get_analytics():
+    return jsonify(get_analytics_summary())
+
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
 
 # Project Management Routes
 @app.route('/api/projects', methods=['GET'])
@@ -613,6 +1007,16 @@ def get_project_history_route(project_name):
     if history:
         return jsonify(history)
     return jsonify({"error": "Project not found"}), 404
+
+@app.route('/api/projects/<project_name>', methods=['DELETE'])
+def delete_project_route(project_name):
+    try:
+        success = project_manager.delete_project(project_name)
+        if success:
+            return jsonify({"success": True})
+        return jsonify({"success": False, "error": "Project not found"}), 404
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # Obsidian Integration
 @app.route('/api/save_to_obsidian', methods=['POST'])
