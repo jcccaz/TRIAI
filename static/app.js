@@ -1,8 +1,9 @@
-// State Management
+﻿// State Management
 // ==================== //
 let isQuerying = false;
 let selectedFiles = [];
 let currentProjectName = null;
+let currentComparisonId = null;
 
 // ==================== //
 // Status Rotation Logic
@@ -53,6 +54,8 @@ const vaultToggle = document.getElementById('vaultToggle');
 const citationToggle = document.getElementById('citationToggle');
 const thoughtToggle = document.getElementById('thoughtToggle');
 const podcastToggle = document.getElementById('podcastToggle');
+const councilToggle = document.getElementById('councilToggle');
+const hardModeToggle = document.getElementById('hardModeToggle');
 
 // File Upload Elements
 const fileUploadArea = document.getElementById('fileUploadArea');
@@ -72,6 +75,8 @@ const responses = {
         thought: document.querySelector('#openai-thought .thought-content'),
         thoughtContainer: document.getElementById('openai-thought'),
         status: document.getElementById('openai-status'),
+        sandbag: document.getElementById('openai-sandbag'),
+        bias: document.getElementById('openai-bias'),
         card: document.querySelector('.ai-card[data-ai="openai"]')
     },
     anthropic: {
@@ -82,6 +87,8 @@ const responses = {
         thought: document.querySelector('#anthropic-thought .thought-content'),
         thoughtContainer: document.getElementById('anthropic-thought'),
         status: document.getElementById('anthropic-status'),
+        sandbag: document.getElementById('anthropic-sandbag'),
+        bias: document.getElementById('anthropic-bias'),
         card: document.querySelector('.ai-card[data-ai="anthropic"]')
     },
     google: {
@@ -92,6 +99,8 @@ const responses = {
         thought: document.querySelector('#google-thought .thought-content'),
         thoughtContainer: document.getElementById('google-thought'),
         status: document.getElementById('google-status'),
+        sandbag: document.getElementById('google-sandbag'),
+        bias: document.getElementById('google-bias'),
         card: document.querySelector('.ai-card[data-ai="google"]')
     },
     perplexity: {
@@ -102,6 +111,8 @@ const responses = {
         thought: document.querySelector('#perplexity-thought .thought-content'),
         thoughtContainer: document.getElementById('perplexity-thought'),
         status: document.getElementById('perplexity-status'),
+        sandbag: document.getElementById('perplexity-sandbag'),
+        bias: document.getElementById('perplexity-bias'),
         card: document.querySelector('.ai-card[data-ai="perplexity"]')
     }
 };
@@ -117,6 +128,24 @@ questionInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         handleAskAllAIs();
+    }
+});
+
+// Role recommendation debounce
+let recTimeout;
+questionInput.addEventListener('input', () => {
+    if (!councilToggle.checked) return;
+    clearTimeout(recTimeout);
+    recTimeout = setTimeout(checkForRecommendations, 1000);
+});
+
+councilToggle.addEventListener('change', () => {
+    if (councilToggle.checked) {
+        checkForRecommendations();
+        document.getElementById('roleSelectors').classList.remove('hidden');
+    } else {
+        document.getElementById('roleSelectors').classList.add('hidden');
+        document.getElementById('roleRecommendation').classList.add('hidden');
     }
 });
 
@@ -176,7 +205,7 @@ function updateFilePreview() {
         tag.className = 'file-tag';
         tag.innerHTML = `
             <span class="file-name">${file.name}</span>
-            <button class="remove-file" data-index="${index}">×</button>
+            <button class="remove-file" data-index="${index}">Ã—</button>
         `;
 
         tag.querySelector('.remove-file').addEventListener('click', (e) => {
@@ -198,6 +227,201 @@ document.querySelectorAll('.copy-button').forEach(button => {
     button.addEventListener('click', handleCopyResponse);
 });
 
+const activeModels = new Set(['openai', 'anthropic', 'google', 'perplexity']);
+document.querySelectorAll('.model-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const model = btn.dataset.model;
+        if (activeModels.has(model)) {
+            activeModels.delete(model);
+            btn.classList.remove('active');
+        } else {
+            activeModels.add(model);
+            btn.classList.add('active');
+        }
+    });
+});
+
+// Recommendation Listeners
+document.getElementById('useRecommendedBtn').addEventListener('click', applyRecommendation);
+document.getElementById('customizeRolesBtn').addEventListener('click', () => {
+    document.getElementById('roleRecommendation').classList.add('hidden');
+});
+
+async function checkForRecommendations() {
+    const question = questionInput.value.trim();
+    if (question.length < 10 || !councilToggle.checked) return;
+
+    try {
+        const response = await fetch('/api/recommend_roles', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question })
+        });
+        const data = await response.json();
+
+        if (data.exists) {
+            showRecommendation(data);
+        } else {
+            document.getElementById('roleRecommendation').classList.add('hidden');
+        }
+    } catch (err) {
+        console.error('Recommendation Error:', err);
+    }
+}
+
+function showRecommendation(data) {
+    const recBox = document.getElementById('roleRecommendation');
+    const categorySpan = document.getElementById('detectedCategory');
+    const list = document.getElementById('recommendedRolesList');
+    const rating = document.getElementById('recRating');
+
+    categorySpan.textContent = data.category;
+    rating.textContent = data.recommendation.avg_rating.toFixed(1) + '/4.0';
+
+    list.innerHTML = `
+        <li>✓ GPT: ${data.recommendation.gpt_role}</li>
+        <li>✓ Claude: ${data.recommendation.claude_role}</li>
+        <li>✓ Gemini: ${data.recommendation.gemini_role}</li>
+        <li>✓ Perplexity: ${data.recommendation.perplexity_role}</li>
+    `;
+
+    // Store for application
+    recBox.dataset.gpt = data.recommendation.gpt_role;
+    recBox.dataset.claude = data.recommendation.claude_role;
+    recBox.dataset.gemini = data.recommendation.gemini_role;
+    recBox.dataset.perplexity = data.recommendation.perplexity_role;
+
+    recBox.classList.remove('hidden');
+}
+
+function applyRecommendation() {
+    const recBox = document.getElementById('roleRecommendation');
+
+    document.getElementById('roleOpenAI').value = recBox.dataset.gpt;
+    document.getElementById('roleAnthropic').value = recBox.dataset.claude;
+    document.getElementById('roleGoogle').value = recBox.dataset.gemini;
+    document.getElementById('rolePerplexity').value = recBox.dataset.perplexity;
+
+    recBox.classList.add('hidden');
+
+    // Add a little glow effect to show they changed
+    document.querySelectorAll('.role-dropdown').forEach(d => {
+        d.style.boxShadow = '0 0 15px var(--accent-gold)';
+        setTimeout(() => d.style.boxShadow = '', 1000);
+    });
+}
+
+// Card Rating Logic
+document.querySelectorAll('.card-rate-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const ratingDiv = btn.closest('.card-rating');
+        const aiProvider = ratingDiv.dataset.ai;
+        const isUp = btn.classList.contains('up');
+        const rating = isUp ? 1 : -1;
+
+        // Toggle Active Stats
+        ratingDiv.querySelectorAll('.card-rate-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        submitResponseRating(aiProvider, rating);
+    });
+});
+
+async function submitResponseRating(aiProvider, rating) {
+    if (!currentComparisonId) return;
+
+    try {
+        await fetch('/api/feedback/response', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                comparison_id: currentComparisonId,
+                ai_provider: aiProvider,
+                rating: rating
+            })
+        });
+    } catch (err) {
+        console.error('Error submitting response rating:', err);
+    }
+}
+
+// Feedback Logic
+// ==================== //
+document.querySelectorAll('.rating-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const rating = parseInt(btn.dataset.rating);
+
+        // Always show comment area and submit button after a rating is picked
+        document.querySelector('.feedback-comment').classList.remove('hidden');
+        document.getElementById('submitFeedbackBtn').classList.remove('hidden');
+
+        if (rating < 3) {
+            // Low rating: specifically show issue checkboxes
+            document.querySelector('.feedback-issues').classList.remove('hidden');
+        } else {
+            // High rating: hide specific issue checkboxes to keep it clean, but keep comment box
+            document.querySelector('.feedback-issues').classList.add('hidden');
+        }
+    });
+});
+
+document.getElementById('submitFeedbackBtn').addEventListener('click', submitFeedback);
+
+async function submitFeedback() {
+    const activeRating = document.querySelector('.rating-btn.active');
+    if (!activeRating) {
+        alert('Please select a rating first!');
+        return;
+    }
+
+    const rating = activeRating.dataset.rating;
+    const feedbackText = document.getElementById('feedbackText').value;
+    const too_generic = document.querySelector('input[name="too_generic"]').checked;
+    const missing_details = document.querySelector('input[name="missing_details"]').checked;
+    const wrong_roles = document.querySelector('input[name="wrong_roles"]').checked;
+    const didnt_answer = document.querySelector('input[name="didnt_answer"]').checked;
+
+    const payload = {
+        comparison_id: currentComparisonId,
+        rating: parseInt(rating),
+        feedback_text: feedbackText,
+        too_generic,
+        missing_details,
+        wrong_roles,
+        didnt_answer,
+        // Optional: Send roles too
+        gpt_role: document.getElementById('roleOpenAI')?.value,
+        claude_role: document.getElementById('roleAnthropic')?.value,
+        gemini_role: document.getElementById('roleGoogle')?.value,
+        perplexity_role: document.getElementById('rolePerplexity')?.value,
+        query_text: questionInput.value
+    };
+
+    try {
+        const response = await fetch('/api/feedback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            document.getElementById('submitFeedbackBtn').classList.add('hidden');
+            document.querySelector('.rating-options').style.pointerEvents = 'none';
+            document.querySelector('.feedback-issues').style.pointerEvents = 'none';
+            document.querySelector('.feedback-comment').style.pointerEvents = 'none';
+            document.getElementById('feedbackThanks').classList.remove('hidden');
+        } else {
+            alert('Failed to submit feedback');
+        }
+    } catch (err) {
+        console.error('Feedback error:', err);
+        alert('Submission error');
+    }
+}
+
 // ==================== //
 // Main Function
 // ==================== //
@@ -206,6 +430,11 @@ async function handleAskAllAIs() {
 
     if (!question) {
         alert('Please enter a question first!');
+        return;
+    }
+
+    if (activeModels.size === 0) {
+        alert('Please select at least one AI model!');
         return;
     }
 
@@ -244,6 +473,9 @@ async function handleAskAllAIs() {
             formData.append('question', question);
             formData.append('use_vault', vaultToggle.checked);
             formData.append('podcast_mode', podcastToggle ? podcastToggle.checked : false);
+            formData.append('council_mode', councilToggle ? councilToggle.checked : false);
+            formData.append('hard_mode', hardModeToggle ? hardModeToggle.checked : false);
+            formData.append('active_models', JSON.stringify(Array.from(activeModels)));
 
             // Append all files
             selectedFiles.forEach(file => {
@@ -252,6 +484,12 @@ async function handleAskAllAIs() {
 
             if (currentProjectName) {
                 formData.append('project_name', currentProjectName);
+            }
+
+            // Add council roles if council mode is enabled
+            if (councilToggle && councilToggle.checked) {
+                const roles = getCouncilRoles();
+                formData.append('council_roles', JSON.stringify(roles));
             }
 
             response = await fetch('/api/ask', {
@@ -268,10 +506,17 @@ async function handleAskAllAIs() {
             const payload = {
                 question,
                 use_vault: vaultToggle.checked,
-                podcast_mode: podcastToggle ? podcastToggle.checked : false
+                podcast_mode: podcastToggle ? podcastToggle.checked : false,
+                council_mode: councilToggle ? councilToggle.checked : false,
+                hard_mode: hardModeToggle ? hardModeToggle.checked : false,
+                active_models: Array.from(activeModels)
             };
             if (currentProjectName) {
                 payload.project_name = currentProjectName;
+            }
+            // Add council roles if council mode is enabled
+            if (councilToggle && councilToggle.checked) {
+                payload.council_roles = getCouncilRoles();
             }
 
             response = await fetch('/api/ask', {
@@ -292,10 +537,17 @@ async function handleAskAllAIs() {
 
         // Update UI with responses using the "results" key
         const results = data.results;
-        updateResponse('openai', results.openai);
-        updateResponse('anthropic', results.anthropic);
-        updateResponse('google', results.google);
-        updateResponse('perplexity', results.perplexity);
+
+        // Hide/Show cards based on selection
+        Object.keys(responses).forEach(key => {
+            const card = responses[key].card;
+            if (activeModels.has(key)) {
+                card.style.display = 'flex';
+                if (results[key]) updateResponse(key, results[key]);
+            } else {
+                card.style.display = 'none';
+            }
+        });
 
         // Show Consensus
         if (data.consensus) {
@@ -306,6 +558,15 @@ async function handleAskAllAIs() {
         // Show results
         loadingState.classList.add('hidden');
         resultsSection.classList.remove('hidden');
+
+        // Store comparison ID for feedback
+        currentComparisonId = data.comparison_id;
+
+        // Reset and Show Feedback Square
+        resetFeedbackUI();
+        if (currentComparisonId) {
+            document.getElementById('feedbackSquare').classList.remove('hidden');
+        }
 
         // Apply toggle states
         handleCitationToggle();
@@ -361,7 +622,32 @@ function resetResponses() {
         responses[aiName].status.classList.remove('success', 'error');
         responses[aiName].card.classList.remove('hidden-by-filter');
         responses[aiName].card.dataset.hasCitations = 'false';
+        if (responses[aiName].sandbag) responses[aiName].sandbag.classList.add('hidden');
+        if (responses[aiName].bias) responses[aiName].bias.classList.add('hidden');
+
+        // Reset card ratings
+        const ratingDiv = responses[aiName].card.querySelector('.card-rating');
+        if (ratingDiv) {
+            ratingDiv.querySelectorAll('.card-rate-btn').forEach(b => b.classList.remove('active'));
+        }
     });
+}
+
+function resetFeedbackUI() {
+    document.getElementById('feedbackSquare').classList.add('hidden');
+    document.getElementById('feedbackThanks').classList.add('hidden');
+    document.getElementById('submitFeedbackBtn').classList.add('hidden'); // Hidden until low rating
+    document.querySelector('.rating-options').classList.remove('hidden');
+    document.querySelector('.feedback-issues').classList.add('hidden'); // Hidden until low rating
+    document.querySelector('.feedback-comment').classList.add('hidden'); // Hidden until low rating
+    document.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.feedback-issues input').forEach(i => i.checked = false);
+    document.getElementById('feedbackText').value = '';
+
+    // Restore pointer events
+    document.querySelector('.rating-options').style.pointerEvents = 'auto';
+    document.querySelector('.feedback-issues').style.pointerEvents = 'auto';
+    document.querySelector('.feedback-comment').style.pointerEvents = 'auto';
 }
 
 function updateResponse(aiName, data) {
@@ -392,15 +678,49 @@ function updateResponse(aiName, data) {
     if (data.success) {
         elements.response.innerHTML = formatMarkdown(data.response);
         elements.response.classList.remove('error');
-        elements.status.textContent = '✓ Success';
+        elements.status.textContent = 'âœ“ Success';
         elements.status.classList.add('success');
         elements.status.classList.remove('error');
     } else {
         elements.response.textContent = data.response;
         elements.response.classList.add('error');
-        elements.status.textContent = '✗ Error';
+        elements.status.textContent = 'âœ— Error';
         elements.status.classList.add('error');
         elements.status.classList.remove('success');
+    }
+
+    // Sandbagging Detection: Thought char count > Response char count * 1.8
+    if (data.thought && data.response && data.success) {
+        const thoughtLen = data.thought.length;
+        const responseLen = data.response.length;
+        if (thoughtLen > responseLen * 1.8 && elements.sandbag) {
+            elements.sandbag.classList.remove('hidden');
+        }
+    }
+
+    // Execution Bias Indicator
+    if (data.execution_bias && elements.bias) {
+        const bias = data.execution_bias;
+        elements.bias.classList.remove('hidden', 'action-forward', 'advisory', 'narrative');
+        elements.bias.classList.add(bias);
+
+        // Formatted Label
+        const labels = {
+            'action-forward': '🟢 Action-Forward',
+            'advisory': '🟡 Advisory',
+            'narrative': '🔴 Narrative / Caution'
+        };
+        elements.bias.textContent = labels[bias] || bias;
+
+        // Add descriptive tooltips
+        const tooltips = {
+            'action-forward': 'Direct execution protocol. High density, no hedging, specific numerical thresholds.',
+            'advisory': 'Consultative approach. Provides options and frameworks with moderate hedging.',
+            'narrative': 'High alignment tax. Verbose, caution-heavy, or refusal-adjacent output.'
+        };
+        elements.bias.title = tooltips[bias] || '';
+    } else if (elements.bias) {
+        elements.bias.classList.add('hidden');
     }
 }
 
@@ -456,7 +776,7 @@ function formatMarkdown(text) {
     text = text.replace(/```(xml|svg|html)\n([\s\S]*?)\n```/g, (match, lang, code) => {
         const id = 'code-' + Math.random().toString(36).substr(2, 9);
         const encodedCode = encodeURIComponent(code);
-        const btn = `<button class="render-btn" onclick="renderCode('${id}', '${lang}', '${encodedCode}')">▶ Render Preview</button>`;
+        const btn = `<button class="render-btn" onclick="renderCode('${id}', '${lang}', '${encodedCode}')">â–¶ Render Preview</button>`;
         const html = `<pre><code class="language-${lang}">${code.replace(/</g, '&lt;')}</code></pre>
                       ${btn}
                       <div id="${id}" class="preview-box hidden"></div>`;
@@ -592,13 +912,38 @@ async function loadHistory() {
             const el = document.createElement('div');
             el.className = 'history-item';
             el.innerHTML = `
-                <div class="history-question">${item.question || 'No Question'}</div>
-                <div class="history-meta d-flex justify-content-between">
-                    <span>${new Date(item.timestamp).toLocaleDateString()}</span>
-                    <span>${item.responses ? item.responses.length : 0} AIs</span>
+                <div class="history-content">
+                    <div class="history-question">${item.question || 'No Question'}</div>
+                    <div class="history-meta">
+                        <span>${new Date(item.timestamp).toLocaleDateString()}</span>
+                        <span>${item.responses ? item.responses.length : 0} AIs</span>
+                    </div>
                 </div>
+                <button class="delete-history-btn" title="Delete">🗑️</button>
             `;
-            el.addEventListener('click', () => loadHistoryItem(item));
+
+            // Click on valid area loads the item
+            el.querySelector('.history-content').addEventListener('click', () => loadHistoryItem(item));
+
+            // Delete button logic
+            const deleteBtn = el.querySelector('.delete-history-btn');
+            deleteBtn.addEventListener('click', async (e) => {
+                e.stopPropagation(); // Prevent loading the item
+                if (confirm('Delete this history item?')) {
+                    try {
+                        const res = await fetch(`/api/history/${item.id}`, { method: 'DELETE' });
+                        const data = await res.json();
+                        if (data.success) {
+                            el.remove();
+                        } else {
+                            alert('Error deleting: ' + data.error);
+                        }
+                    } catch (err) {
+                        alert('Delete failed');
+                    }
+                }
+            });
+
             historyList.appendChild(el);
         });
 
@@ -729,10 +1074,39 @@ async function loadProjects() {
             const el = document.createElement('div');
             el.className = `project-item ${name === currentProjectName ? 'active-project' : ''}`;
             el.innerHTML = `
-                <span class="project-name">${name}</span>
-                <span class="project-arrow">→</span>
+                <div class="project-content">
+                    <span class="project-name">${name}</span>
+                    <span class="project-arrow">→</span>
+                </div>
+                <button class="delete-project-btn" title="Delete Project">🗑️</button>
             `;
-            el.addEventListener('click', () => selectProject(name));
+
+            // Click on name/arrow to select project
+            el.querySelector('.project-content').addEventListener('click', () => selectProject(name));
+
+            // Delete button logic
+            const deleteBtn = el.querySelector('.delete-project-btn');
+            deleteBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (confirm(`Delete project "${name}"? This cannot be undone.`)) {
+                    try {
+                        const res = await fetch(`/api/projects/${encodeURIComponent(name)}`, { method: 'DELETE' });
+                        const data = await res.json();
+                        if (data.success) {
+                            // If deleting active project, clear it
+                            if (name === currentProjectName) {
+                                clearCurrentProject();
+                            }
+                            el.remove();
+                        } else {
+                            alert('Error deleting: ' + data.error);
+                        }
+                    } catch (err) {
+                        alert('Delete failed');
+                    }
+                }
+            });
+
             projectsList.appendChild(el);
         });
     } catch (error) {
@@ -789,7 +1163,7 @@ function generateMarkdown() {
     let md = `# TriAI Report: ${question}\n\n`;
     md += `**Date:** ${timestamp}\n`;
     if (currentProjectName) md += `**Project:** ${currentProjectName}\n`;
-    md += `\n---\n\n## 🤖 Consensus Analysis\n\n${consensus}\n\n---\n\n`;
+    md += `\n---\n\n## ðŸ¤– Consensus Analysis\n\n${consensus}\n\n---\n\n`;
 
     // Add individual responses
     Object.keys(responses).forEach(key => {
@@ -824,7 +1198,7 @@ async function saveToObsidian() {
 
     // UI Feedback - Start
     const originalText = obsidianBtn.innerHTML;
-    obsidianBtn.innerHTML = '<span class="icon">⏳</span> Saving...';
+    obsidianBtn.innerHTML = '<span class="icon">â³</span> Saving...';
     obsidianBtn.disabled = true;
 
     try {
@@ -840,7 +1214,7 @@ async function saveToObsidian() {
         const result = await response.json();
 
         if (result.success) {
-            obsidianBtn.innerHTML = '<span class="icon">✓</span> Saved!';
+            obsidianBtn.innerHTML = '<span class="icon">âœ“</span> Saved!';
             obsidianBtn.style.borderColor = '#10b981';
             setTimeout(() => {
                 obsidianBtn.innerHTML = originalText;
@@ -853,7 +1227,7 @@ async function saveToObsidian() {
     } catch (error) {
         console.error('Save failed:', error);
         alert('Failed to save to Obsidian: ' + error.message);
-        obsidianBtn.innerHTML = '<span class="icon">✗</span> Failed';
+        obsidianBtn.innerHTML = '<span class="icon">âœ—</span> Failed';
         setTimeout(() => {
             obsidianBtn.innerHTML = originalText;
             obsidianBtn.disabled = false;
@@ -1030,16 +1404,40 @@ function playNextPodcastLine() {
 
 function updateListenButton(isSpeaking) {
     if (isSpeaking) {
-        listenBtn.innerHTML = '<span class="icon">⏹️</span> Stop';
+        listenBtn.innerHTML = '<span class="icon">â¹ï¸</span> Stop';
         listenBtn.classList.add('active-voice');
         listenBtn.style.borderColor = '#eab308'; // Warn/Gold color
         listenBtn.style.color = '#eab308';
     } else {
-        listenBtn.innerHTML = '<span class="icon">🔊</span> Listen';
+        listenBtn.innerHTML = '<span class="icon">ðŸ”Š</span> Listen';
         listenBtn.classList.remove('active-voice');
         listenBtn.style.borderColor = ''; // Reset to default
         listenBtn.style.color = '';
     }
+}
+
+// ==================== //
+// Council Mode Role Selectors
+// ==================== //
+const roleSelectors = document.getElementById('roleSelectors');
+
+// Show/Hide role selectors when Council Mode is toggled
+councilToggle.addEventListener('change', () => {
+    if (councilToggle.checked) {
+        roleSelectors.classList.remove('hidden');
+    } else {
+        roleSelectors.classList.add('hidden');
+    }
+});
+
+// Function to get current role assignments
+function getCouncilRoles() {
+    return {
+        openai: document.getElementById('roleOpenAI').value,
+        anthropic: document.getElementById('roleAnthropic').value,
+        google: document.getElementById('roleGoogle').value,
+        perplexity: document.getElementById('rolePerplexity').value
+    };
 }
 
 // ==================== //

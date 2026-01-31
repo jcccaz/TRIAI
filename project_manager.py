@@ -77,3 +77,33 @@ class ProjectManager:
         """Lists all available projects."""
         return [name for name in os.listdir(self.storage_folder) 
                 if os.path.isdir(os.path.join(self.storage_folder, name))]
+    
+    def delete_project(self, project_name):
+        """Deletes a project and all its files."""
+        import shutil
+        import stat
+        import time
+        
+        project_path = os.path.join(self.storage_folder, project_name)
+        
+        if not os.path.exists(project_path):
+            return False
+        
+        # Windows-safe deletion with error handling
+        def handle_remove_readonly(func, path, exc):
+            """Error handler for Windows readonly files"""
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+        
+        try:
+            shutil.rmtree(project_path, onerror=handle_remove_readonly)
+            return True
+        except Exception as e:
+            print(f"Error deleting project: {e}")
+            # Try again after a short delay (files might be locked)
+            time.sleep(0.5)
+            try:
+                shutil.rmtree(project_path, onerror=handle_remove_readonly)
+                return True
+            except:
+                return False
