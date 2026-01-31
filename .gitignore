@@ -51,11 +51,10 @@ instance/
 *.sqlite
 
 # Local Artifacts
-*.png
 *.jpg
 *.jpeg
-*.mp4
 triai_projects/
+
 static_backup/
 app_stable_backup.py
 
