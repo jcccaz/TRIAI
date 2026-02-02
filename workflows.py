@@ -375,7 +375,7 @@ OUTPUT DENSITY: 100%. ZERO HEDGING."""
     },
     "telecom_eng": {
         "name": "Telecom Network Engineer",
-        "description": "Infrastructure Research -> Carrier Architecture -> Optical/RAN Optimization -> Reliability Stress Test.",
+        "description": "Research -> Fabric Invariants -> HAL Mapping -> Optical Optimization -> Reliability Stress Test.",
         "steps": [
             {
                 "id": 1,
@@ -386,30 +386,37 @@ OUTPUT DENSITY: 100%. ZERO HEDGING."""
             },
             {
                 "id": 2,
-                "key": "carrier_arch",
-                "role": "telecom",
+                "key": "fabric_invariants",
+                "role": "fabric_arch",
                 "model": "openai",
-                "instruction": "Carrier Architecture: Design the core network fabric and backhaul logistics for {user_input} using research: {previous_context[infra_scan]}."
+                "instruction": "Fabric Invariants: Establish high-level conceptual laws and scaling constraints for {user_input} using research: {previous_context[infra_scan]}. Focus on technical invariants that MUST be true."
             },
             {
                 "id": 3,
-                "key": "optimization",
-                "role": "optical_eng",
+                "key": "hal_mapping",
+                "role": "hal_eng",
                 "model": "anthropic",
-                "instruction": "Optical & RF Optimization: Provide specific dbm loss calculations and WDM grid spacing for signal integrity in the current environment: {previous_context[carrier_arch]}. Identify the exact coexistence filtering requirements."
+                "instruction": "HAL Mapping: Convert the invariants ({previous_context[fabric_invariants]}) into specific hardware-adjacent slot, linecard, and port-role assignments for: {user_input}."
             },
             {
                 "id": 4,
+                "key": "optimization",
+                "role": "optical_eng",
+                "model": "anthropic",
+                "instruction": "Optical & RF Optimization: Provide specific dbm loss calculations and WDM grid spacing based on the HAL mapping: {previous_context[hal_mapping]}."
+            },
+            {
+                "id": 5,
                 "key": "stress_test",
                 "role": "critic",
                 "model": "google",
-                "instruction": "Reliability Stress Test: Act as Dr. Aris Thorne. Perform a failure-mode analysis on the carrier design: {previous_context[optimization]}. Identify single points of failure in the backhaul or core path."
+                "instruction": "Reliability Stress Test: Act as Dr. Aris Thorne. Perform a failure-mode analysis on the total design: {previous_context[optimization]}. Hunt for the 'kill shot' in the timing or physical path."
             }
         ]
     },
     "network_eng": {
         "name": "Computer Network Engineer",
-        "description": "Protocol Forensics -> DC Architecture -> Forensic Security Layer -> Latency Audit.",
+        "description": "Forensics -> Fabric Invariants -> HAL Mapping -> Integrity Guardrails -> Latency Audit.",
         "steps": [
             {
                 "id": 1,
@@ -420,24 +427,31 @@ OUTPUT DENSITY: 100%. ZERO HEDGING."""
             },
             {
                 "id": 2,
-                "key": "dc_arch",
-                "role": "network",
+                "key": "fabric_invariants",
+                "role": "fabric_arch",
                 "model": "openai",
-                "instruction": "Data Center Architecture: Design the Spine-Leaf fabric, IPAM schema, and load-balancing strategy for {user_input} using: {previous_context[protocol_forensics]}."
+                "instruction": "Fabric Invariants: Define the conceptual laws and BGP/VXLAN scaling constraints for {user_input} using research: {previous_context[protocol_forensics]}."
             },
             {
                 "id": 3,
-                "key": "security_layer",
-                "role": "containment",
+                "key": "hal_mapping",
+                "role": "hal_eng",
                 "model": "anthropic",
-                "instruction": "Architectural Integrity Guardrails: Act as Dr. Anya Sharma. Design the enterprise data privacy guardrails and administrative access control policies for the fabric: {previous_context[dc_arch]}. Focus on ensuring absolute tenant isolation and compliance-driven packet-flow integrity."
+                "instruction": "HAL Mapping: Reify the invariants ({previous_context[fabric_invariants]}) into specific Spine-Leaf slot roles, VTEP VNI mappings, and port-role distributions for: {user_input}."
             },
             {
                 "id": 4,
+                "key": "security_layer",
+                "role": "containment",
+                "model": "anthropic",
+                "instruction": "Architectural Integrity Guardrails: Act as Dr. Anya Sharma. Design the enterprise data privacy guardrails and administrative access control policies based on the HAL map: {previous_context[hal_mapping]}."
+            },
+            {
+                "id": 5,
                 "key": "latency_audit",
                 "role": "critic",
                 "model": "google",
-                "instruction": "Latency & Throughput Audit: Perform a rigorous bottleneck detection and jitter analysis on the network plan: {previous_context[security_layer]}."
+                "instruction": "Latency & Throughput Audit: Perform a rigorous bottleneck detection and jitter analysis on the final network plan: {previous_context[security_layer]}."
             }
         ]
     }
