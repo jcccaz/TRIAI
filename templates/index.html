@@ -268,6 +268,20 @@
                             <span class="slider round"></span>
                             <span class="toggle-label">Hard Mode ⚡</span>
                         </label>
+                        <!-- WORKFLOW MODE TOGGLE -->
+                        <label class="toggle-switch" title="Execute multi-step industrial workflows">
+                            <input type="checkbox" id="workflowToggle">
+                            <span class="slider round"></span>
+                            <span class="toggle-label">Workflow 🌊</span>
+                        </label>
+                    </div>
+
+                    <!-- Workflow Template Selector (Hidden by default) -->
+                    <div id="workflowArea" class="workflow-selector-area hidden">
+                        <span class="section-label">SELECT WORKFLOW:</span>
+                        <select id="workflowSelect" class="role-dropdown">
+                            <option value="">-- Choose a workflow --</option>
+                        </select>
                     </div>
 
                     <button id="micBtn" class="icon-button" title="Voice Input">
@@ -526,7 +540,86 @@
                 </div>
             </div>
         </section>
+
+        <!-- Workflow Results Section (Workflow Builder UI) -->
+        <section id="workflowResultsSection" class="workflow-results-section hidden">
+            <div class="workflow-builder-card">
+                <div class="workflow-header">
+                    <div class="workflow-header-left">
+                        <span class="builder-badge">WORKFLOW BUILDER</span>
+                        <h2 id="activeWorkflowName" class="workflow-title">Project: Discovery Phase</h2>
+                    </div>
+                    <div class="workflow-controls-top">
+                        <div class="workflow-percentage" id="workflowProgressText">0% Complete</div>
+                        <button id="pauseWorkflowBtn" class="control-btn tiny hidden">
+                            <span class="icon">⏸</span> Pause
+                        </button>
+                    </div>
+                </div>
+
+                <div class="workflow-progress-bar">
+                    <div id="workflowProgressBarFill" class="progress-fill" style="width: 0%"></div>
+                </div>
+
+                <div id="workflowStepsContainer" class="workflow-pipeline">
+                    <!-- Workflow steps (Cards + Arrows) will be injected here -->
+                </div>
+
+                <div class="workflow-final-actions hidden" id="workflowFinalActions">
+                    <div class="action-group">
+                        <button id="workflowExportBtn" class="action-btn success">
+                            <span class="icon">📦</span> Download All Results (.ZIP)
+                        </button>
+                        <button id="workflowResetBtn" class="action-btn secondary">
+                            <span class="icon">🔄</span> New Project
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Edit Step Modal -->
+        <div id="editStepModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Edit Step Output</h3>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="modal-tip">Refining this output will affect all subsequent steps in the pipeline.</p>
+                    <textarea id="editStepTextArea" class="modal-textarea"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button id="saveStepEditBtn" class="action-btn success">Save & Proceed</button>
+                    <button id="cancelStepEditBtn" class="action-btn">Cancel</button>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <!-- Interrogation Drawer -->
+    <aside id="interrogationDrawer" class="interrogation-drawer">
+        <div class="drawer-header">
+            <h3 class="drawer-title">Expert Interrogation</h3>
+            <button id="closeInterrogation" class="close-drawer">×</button>
+        </div>
+        <div class="drawer-content" id="interrogationContent">
+            <div id="interrogationHistory" class="interrogation-history">
+                <!-- Chat bubbles will go here -->
+            </div>
+            <div id="interrogationLoading" class="loading-state hidden">
+                <div class="loading-spinner" style="width: 30px; height: 30px;"></div>
+                <p style="font-size: 0.8rem;">Interrogating expert...</p>
+            </div>
+        </div>
+        <div class="drawer-footer">
+            <div class="interrogation-input-area">
+                <textarea id="interrogationInput" class="interrogation-input"
+                    placeholder="Ask a follow-up question..."></textarea>
+                <button id="submitInterrogation" class="interrogate-submit">Send</button>
+            </div>
+        </div>
+    </aside>
 
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>

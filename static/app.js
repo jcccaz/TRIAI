@@ -56,6 +56,29 @@ const thoughtToggle = document.getElementById('thoughtToggle');
 const podcastToggle = document.getElementById('podcastToggle');
 const councilToggle = document.getElementById('councilToggle');
 const hardModeToggle = document.getElementById('hardModeToggle');
+const workflowToggle = document.getElementById('workflowToggle');
+const workflowArea = document.getElementById('workflowArea');
+const workflowSelect = document.getElementById('workflowSelect');
+const workflowResultsSection = document.getElementById('workflowResultsSection');
+const workflowStepsContainer = document.getElementById('workflowStepsContainer');
+const workflowProgressBarFill = document.getElementById('workflowProgressBarFill');
+const workflowProgressText = document.getElementById('workflowProgressText');
+const activeWorkflowName = document.getElementById('activeWorkflowName');
+const workflowResetBtn = document.getElementById('workflowResetBtn');
+const workflowExportBtn = document.getElementById('workflowExportBtn');
+const pauseWorkflowBtn = document.getElementById('pauseWorkflowBtn');
+const editStepModal = document.getElementById('editStepModal');
+const editStepTextArea = document.getElementById('editStepTextArea');
+const saveStepEditBtn = document.getElementById('saveStepEditBtn');
+const cancelStepEditBtn = document.getElementById('cancelStepEditBtn');
+const closeModalBtn = document.querySelector('.close-modal');
+
+let currentWorkflowData = null;
+let workflowIsPaused = false;
+let currentStepIndex = 0;
+let workflowContext = {};
+let currentWorkflowResults = []; // Store full step results globally
+let editingStepId = null;
 
 // File Upload Elements
 const fileUploadArea = document.getElementById('fileUploadArea');
@@ -442,6 +465,11 @@ async function handleAskAllAIs() {
         return;
     }
 
+    if (workflowToggle && workflowToggle.checked) {
+        runWorkflowMode();
+        return;
+    }
+
     // Update UI state
     isQuerying = true;
     askButton.disabled = true;
@@ -689,6 +717,18 @@ function updateResponse(aiName, data) {
         elements.status.classList.remove('success');
     }
 
+    // Add Interrogate Button if successful
+    if (data.success) {
+        let actionsArea = elements.card.querySelector('.ai-meta');
+        if (!actionsArea.querySelector('.interrogate-button')) {
+            const intBtn = document.createElement('button');
+            intBtn.className = 'interrogate-button';
+            intBtn.innerHTML = `<span>🔍 Interrogate</span>`;
+            intBtn.onclick = () => openInterrogation(aiName, data.response);
+            actionsArea.insertBefore(intBtn, actionsArea.firstChild);
+        }
+    }
+
     // Sandbagging Detection: Thought char count > Response char count * 1.8
     if (data.thought && data.response && data.success) {
         const thoughtLen = data.thought.length;
@@ -797,6 +837,9 @@ function formatMarkdown(text) {
     // 4. Bold / Italic
     text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+    // 4.1 Images (New Support)
+    text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" style="max-width:100%; border-radius:4px; margin: 10px 0;">');
 
     // 5. Line breaks (only in non-code text)
     text = text.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
@@ -1444,3 +1487,395 @@ function getCouncilRoles() {
 // Initialization
 // ==================== //
 console.log('TriAI Compare loaded successfully');
+
+// ==================== //
+// Workflow Mode Logic  //
+// ==================== //
+
+// Initial Fetch of Workflows
+async function fetchWorkflows() {
+    try {
+        const response = await fetch('/api/workflows');
+        const workflows = await response.json();
+
+        workflowSelect.innerHTML = '<option value="">-- Choose a workflow --</option>';
+        Object.keys(workflows).forEach(id => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = workflows[id].name;
+            workflowSelect.appendChild(option);
+        });
+    } catch (err) {
+        console.error('Error fetching workflows:', err);
+    }
+}
+
+fetchWorkflows();
+
+workflowToggle.addEventListener('change', () => {
+    if (workflowToggle.checked) {
+        workflowArea.classList.remove('hidden');
+        if (councilToggle.checked) councilToggle.click();
+        resultsSection.classList.add('hidden');
+        consensusSection.classList.add('hidden');
+    } else {
+        workflowArea.classList.add('hidden');
+        workflowResultsSection.classList.add('hidden');
+    }
+});
+
+async function runWorkflowMode() {
+    const question = questionInput.value.trim();
+    const workflowId = workflowSelect.value;
+
+    if (!workflowId) {
+        alert('Please select a workflow template!');
+        return;
+    }
+
+    // Reset state
+    isQuerying = true;
+    askButton.disabled = true;
+    askButton.querySelector('.button-text').textContent = 'Project Initializing...';
+    loadingState.classList.remove('hidden');
+    startStatusRotation();
+
+    // Video State: High Energy
+    const bgVideo = document.getElementById('bgVideo');
+    const processingVideo = document.getElementById('processingVideo');
+
+    if (bgVideo && processingVideo) {
+        bgVideo.classList.remove('active');
+        processingVideo.classList.add('active');
+        processingVideo.play();
+    }
+
+    workflowStepsContainer.innerHTML = '';
+    workflowProgressBarFill.style.width = '0%';
+    workflowProgressText.textContent = 'Initializing...';
+    workflowResultsSection.classList.remove('hidden');
+    workflowFinalActions.classList.add('hidden');
+    pauseWorkflowBtn.classList.remove('hidden');
+
+    workflowContext = { 'initial_goal': question };
+    currentStepIndex = 0;
+    workflowIsPaused = false;
+
+    try {
+        // Start the Job
+        const runResponse = await fetch('/api/workflow/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                question: question,
+                workflow_id: workflowId,
+                hard_mode: hardModeToggle.checked
+            })
+        });
+
+        const initData = await runResponse.json();
+        if (initData.error) throw new Error(initData.error);
+
+        const jobId = initData.job_id;
+        console.log(`Workflow started: ${jobId}`);
+
+        // Load template for metadata
+        const workflowsRes = await fetch('/api/workflows');
+        const workflowsData = await workflowsRes.json();
+        currentWorkflowData = workflowsData[workflowId];
+        activeWorkflowName.textContent = `Project: ${currentWorkflowData.name}`;
+
+        // Start Polling
+        pollWorkflowStatus(jobId);
+
+    } catch (err) {
+        alert(`Workflow Init Error: ${err.message}`);
+        stopWorkflow();
+    }
+}
+
+function pollWorkflowStatus(jobId) {
+    const renderedStepIds = new Set();
+
+    const interval = setInterval(async () => {
+        try {
+            const response = await fetch(`/api/workflow/status/${jobId}`);
+            const data = await response.json();
+
+            if (data.error) {
+                clearInterval(interval);
+                alert(`Polling Error: ${data.error}`);
+                stopWorkflow();
+                return;
+            }
+
+            const totalSteps = currentWorkflowData.steps.length;
+            currentWorkflowResults = data.results || [];
+
+            // Render new results
+            currentWorkflowResults.forEach((step) => {
+                if (!renderedStepIds.has(step.step)) {
+                    if (renderedStepIds.size > 0) {
+                        const arrow = document.createElement('div');
+                        arrow.className = 'pipeline-arrow';
+                        workflowStepsContainer.appendChild(arrow);
+                    }
+                    const card = createStepCard(step);
+                    workflowStepsContainer.appendChild(card);
+                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+
+                    renderedStepIds.add(step.step);
+                    workflowContext[step.key || `step_${step.step}`] = step.data.response;
+                }
+            });
+
+            // Update Header Status
+            const progress = Math.round((renderedStepIds.size / totalSteps) * 100);
+            workflowProgressBarFill.style.width = `${progress}%`;
+            workflowProgressText.textContent = `${progress}% Complete`;
+
+            if (data.status === 'complete') {
+                clearInterval(interval);
+                finishWorkflow();
+            } else if (data.status === 'failed') {
+                clearInterval(interval);
+                alert(`Workflow Failed: ${data.error || 'Unknown Error'}`);
+                stopWorkflow();
+            }
+
+        } catch (err) {
+            console.error('Polling cycle error:', err);
+        }
+    }, 2000);
+}
+
+function createStepCard(step) {
+    const card = document.createElement('div');
+    card.id = `step-card-${step.step}`;
+    card.className = 'workflow-step-card';
+    const colors = getModelColors(step.model);
+    card.style.setProperty('--step-color', colors.hex);
+
+    const success = step.data.success;
+    const statusClass = success ? 'complete' : 'error';
+    const statusText = success ? '✓ Complete' : '❌ Failed';
+
+    // Find instruction from template
+    const stepTemplate = currentWorkflowData.steps.find(s => s.id === step.step);
+    const instruction = stepTemplate ? stepTemplate.instruction : "Step execution.";
+
+    card.innerHTML = `
+        <div class="step-status-row">
+            <div class="status-badge ${statusClass}">${statusText}</div>
+            <div class="step-id">STEP ${step.step}: ${step.role.toUpperCase()}</div>
+            <div class="step-actions">
+                <button class="step-btn interrogate-step-trigger" data-model="${step.model}" data-step="${step.step}" data-role="${step.role}">Interrogate</button>
+                <button class="step-btn" onclick="openEditModal('${step.key}', ${step.step})">Edit Output</button>
+                <button class="step-btn" onclick="copyToClipboard(this, \`${step.data.response.replace(/`/g, '\\`')}\`)">Copy</button>
+            </div>
+        </div>
+        <div class="step-header">
+            <span class="step-role" style="color:${colors.hex}">${step.role.toUpperCase()} (${step.model})</span>
+        </div>
+        <div class="step-instruction">Objective: ${instruction}</div>
+        <div class="step-response">${formatMarkdown(step.data.response)}</div>
+    `;
+    return card;
+}
+
+function getModelColors(model) {
+    const colors = {
+        'openai': { hex: 'var(--accent-openai)', rgb: '16, 163, 127' },
+        'anthropic': { hex: 'var(--accent-anthropic)', rgb: '249, 115, 22' },
+        'google': { hex: 'var(--accent-google)', rgb: '234, 179, 8' },
+        'perplexity': { hex: 'var(--accent-perplexity)', rgb: '6, 182, 212' }
+    };
+    return colors[model] || { hex: 'var(--accent-gold)', rgb: '212, 175, 55' };
+}
+
+function updateAskButtonStatus(text) {
+    askButton.querySelector('.button-text').textContent = text;
+}
+
+function stopWorkflow() {
+    isQuerying = false;
+    askButton.disabled = false;
+    askButton.querySelector('.button-text').textContent = 'Ask All AIs';
+    loadingState.classList.add('hidden');
+    stopStatusRotation();
+
+    // Reset Video State
+    const bgVideo = document.getElementById('bgVideo');
+    const processingVideo = document.getElementById('processingVideo');
+
+    if (bgVideo && processingVideo) {
+        processingVideo.classList.remove('active');
+        setTimeout(() => processingVideo.pause(), 1500);
+        bgVideo.classList.add('active');
+    }
+}
+
+function finishWorkflow() {
+    stopWorkflow();
+    workflowFinalActions.classList.remove('hidden');
+    pauseWorkflowBtn.classList.add('hidden');
+}
+
+// Global scope functions for dynamic buttons
+window.openEditModal = function (key, stepId) {
+    editingStepId = stepId;
+    const content = workflowContext[key] || "";
+    editStepTextArea.value = content;
+    editStepModal.classList.remove('hidden');
+};
+
+saveStepEditBtn.addEventListener('click', () => {
+    const newContent = editStepTextArea.value;
+    const templateStep = currentWorkflowData.steps.find(s => s.id === editingStepId);
+    const key = templateStep ? templateStep.key : `step_${editingStepId}`;
+
+    workflowContext[key] = newContent;
+
+    // Update the UI card as well
+    const card = document.getElementById(`step-card-${editingStepId}`);
+    if (card) {
+        const responseDiv = card.querySelector('.step-response');
+        responseDiv.innerHTML = formatMarkdown(newContent);
+    }
+
+    editStepModal.classList.add('hidden');
+});
+
+[cancelStepEditBtn, closeModalBtn].forEach(btn => {
+    btn.addEventListener('click', () => editStepModal.classList.add('hidden'));
+});
+
+// Export Logic
+workflowExportBtn.addEventListener('click', async () => {
+    let report = `# Discovery Report: ${currentWorkflowData.name}\n`;
+    report += `Generated: ${new Date().toLocaleString()}\n`;
+    report += `Goal: ${workflowContext.initial_goal}\n\n`;
+
+    currentWorkflowData.steps.forEach(step => {
+        const key = step.key || `step_${step.id}`;
+        report += `## STEP ${step.id}: ${step.role.toUpperCase()} (${step.model})\n`;
+        report += `${workflowContext[key] || "No output."}\n\n`;
+        report += `---\n\n`;
+    });
+
+    const blob = new Blob([report], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `TriAI_Discovery_${currentWorkflowData.name.replace(/\s+/g, '_')}.md`;
+    a.click();
+});
+
+workflowResetBtn.addEventListener('click', () => {
+    workflowResultsSection.classList.add('hidden');
+    questionInput.value = '';
+    questionInput.focus();
+});
+// ==================== //
+// Interrogation Logic  //
+// ==================== //
+const interrogationDrawer = document.getElementById('interrogationDrawer');
+const closeInterrogation = document.getElementById('closeInterrogation');
+const interrogationHistory = document.getElementById('interrogationHistory');
+const interrogationInput = document.getElementById('interrogationInput');
+const submitInterrogation = document.getElementById('submitInterrogation');
+const interrogationLoading = document.getElementById('interrogationLoading');
+
+let currentInterrogationModel = '';
+let currentInterrogationContext = '';
+let currentInterrogationRole = '';
+
+window.openInterrogation = function (model, response, role = 'Expert') {
+    currentInterrogationModel = model;
+    currentInterrogationContext = response;
+    currentInterrogationRole = role;
+
+    interrogationHistory.innerHTML = '';
+    addInterrogationBubble('ai', response, model, role);
+
+    interrogationDrawer.classList.add('open');
+};
+
+// Event Delegation for Interrogation Triggers
+document.addEventListener('click', (e) => {
+    if (e.target && e.target.classList.contains('interrogate-step-trigger')) {
+        const model = e.target.dataset.model;
+        const stepId = e.target.dataset.step;
+        const role = e.target.dataset.role;
+
+        // Find the full response from currentWorkflowResults
+        const step = currentWorkflowResults.find(s => s.step == stepId);
+        const response = step ? step.data.response : (workflowContext[stepId] || "");
+
+        openInterrogation(model, response, role);
+    }
+});
+
+closeInterrogation.addEventListener('click', () => {
+    interrogationDrawer.classList.remove('open');
+});
+
+submitInterrogation.addEventListener('click', runInterrogation);
+interrogationInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        runInterrogation();
+    }
+});
+
+async function runInterrogation() {
+    const question = interrogationInput.value.trim();
+    if (!question || !currentInterrogationModel) return;
+
+    addInterrogationBubble('user', question);
+    interrogationInput.value = '';
+    interrogationLoading.classList.remove('hidden');
+
+    try {
+        const res = await fetch('/interrogate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: currentInterrogationModel,
+                question: question,
+                previous_response: currentInterrogationContext,
+                project_context: JSON.stringify(workflowContext)
+            })
+        });
+
+        const data = await res.json();
+        interrogationLoading.classList.add('hidden');
+
+        if (data.success) {
+            addInterrogationBubble('ai', data.response, currentInterrogationModel, currentInterrogationRole);
+            // Update context so follow-ups have memory of the interrogation
+            currentInterrogationContext += `\n\nUser Question: ${question}\nYour Follow-up: ${data.response}`;
+        } else {
+            addInterrogationBubble('ai', `Error: ${data.error || 'Failed to interrogate expert.'}`, 'system', 'System');
+        }
+    } catch (err) {
+        interrogationLoading.classList.add('hidden');
+        addInterrogationBubble('ai', `Protocol Error: ${err.message}`, 'system', 'System');
+    }
+}
+
+function addInterrogationBubble(type, content, model, role) {
+    const bubble = document.createElement('div');
+    bubble.className = `interrogation-bubble ${type}`;
+
+    if (type === 'ai') {
+        const colors = getModelColors(model);
+        bubble.style.setProperty('--card-accent', colors.hex);
+        bubble.innerHTML = `<strong>${role.toUpperCase()} (${model}):</strong><br>${formatMarkdown(content)}`;
+    } else {
+        bubble.textContent = content;
+    }
+
+    interrogationHistory.appendChild(bubble);
+    interrogationHistory.scrollTop = interrogationHistory.scrollHeight;
+}
