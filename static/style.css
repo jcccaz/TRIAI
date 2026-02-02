@@ -503,6 +503,21 @@ body {
     width: 100%;
 }
 
+.tech-link {
+    color: var(--accent-perplexity);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.tech-link:hover {
+    color: var(--text-primary);
+    background: rgba(6, 182, 212, 0.1);
+    text-decoration-thickness: 2px;
+}
+
 .response-text img {
     max-width: 100%;
     height: auto;

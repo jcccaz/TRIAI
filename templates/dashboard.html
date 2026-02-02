@@ -89,6 +89,65 @@
             color: var(--text-muted);
         }
 
+        .drift-section {
+            margin-top: var(--spacing-xl);
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            padding: var(--spacing-lg);
+            border-radius: var(--radius-md);
+        }
+
+        .drift-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-lg);
+        }
+
+        .drift-card {
+            border: 1px solid var(--border-subtle);
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+        }
+
+        .drift-model {
+            font-weight: 700;
+            color: var(--accent-gold);
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .drift-status {
+            font-size: 0.8rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: rgba(212, 175, 55, 0.1);
+            color: var(--accent-gold);
+            display: inline-block;
+            margin-bottom: 0.8rem;
+        }
+
+        .drift-metrics {
+            margin-top: var(--spacing-sm);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .drift-bar {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+
+        .drift-bar-fill {
+            height: 100%;
+            background: var(--accent-gold);
+        }
+
         .back-link {
             display: inline-block;
             margin-bottom: var(--spacing-lg);
@@ -99,6 +158,30 @@
 
         .back-link:hover {
             text-decoration: underline;
+        }
+
+        .spending-breakdown {
+            margin-top: var(--spacing-md);
+            text-align: left;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border-subtle);
+            padding-top: var(--spacing-sm);
+        }
+
+        .breakdown-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .breakdown-label {
+            text-transform: capitalize;
+        }
+
+        .breakdown-value {
+            font-family: var(--font-mono);
+            color: var(--accent-gold);
         }
     </style>
 </head>
@@ -127,6 +210,13 @@
                 <span class="stat-value" id="avgSat">--</span>
                 <span class="stat-label">Avg Satisfaction</span>
             </div>
+            <div class="stat-card">
+                <span class="stat-value" id="totalSpent">--</span>
+                <span class="stat-label">Total Investment (USD)</span>
+                <div id="spendingBreakdown" class="spending-breakdown">
+                    <!-- Breakdown injected here -->
+                </div>
+            </div>
         </div>
 
         <div class="top-combos">
@@ -136,17 +226,46 @@
                 <div class="loading-text">Analyzing performance data...</div>
             </div>
         </div>
+
+        <div class="drift-section">
+            <h2 style="color: var(--accent-gold);">Persona Persistence & Drift Analysis</h2>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--spacing-lg);">
+                Tracking how AI models "Self-Select" identities vs. providing actual depth. High persistence indicates a
+                strong identity "vibe" that may override technical substance.
+            </p>
+            <div id="driftGrid" class="drift-grid">
+                <div class="loading-text">Calculating model drift...</div>
+            </div>
+        </div>
     </div>
 
     <script>
         async function loadAnalytics() {
             try {
+                // Load General Analytics
                 const response = await fetch('/api/analytics');
                 const data = await response.json();
 
                 document.getElementById('totalQueries').textContent = data.total_queries;
                 document.getElementById('feedbackCount').textContent = data.total_feedback;
-                document.getElementById('avgSat').textContent = data.avg_satisfaction + '/4.0';
+                document.getElementById('avgSat').textContent = (data.avg_satisfaction || 0).toFixed(1) + '/4.0';
+                document.getElementById('totalSpent').textContent = '$' + (data.total_spent || 0).toFixed(2);
+
+                if (data.spending_breakdown) {
+                    const breakdownContainer = document.getElementById('spendingBreakdown');
+                    breakdownContainer.innerHTML = '';
+                    Object.entries(data.spending_breakdown).forEach(([provider, cost]) => {
+                        if (cost > 0 || provider !== 'google') { // Show all even if 0, except maybe google if it stays 0
+                            const row = document.createElement('div');
+                            row.className = 'breakdown-row';
+                            row.innerHTML = `
+                                <span class="breakdown-label">${provider}:</span>
+                                <span class="breakdown-value">$${cost.toFixed(3)}</span>
+                            `;
+                            breakdownContainer.appendChild(row);
+                        }
+                    });
+                }
 
                 const comboList = document.getElementById('comboList');
                 comboList.innerHTML = '';
@@ -168,13 +287,49 @@
                                 </div>
                             </div>
                             <div class="combo-rating">
-                                <div class="rating-val">${combo.rating}/4.0</div>
+                                <div class="rating-val">${combo.rating.toFixed(1)}/4.0</div>
                                 <div class="usage-val">${combo.count} successful queries</div>
                             </div>
                         `;
                         comboList.appendChild(el);
                     });
                 }
+
+                // Load Persona Drift
+                const driftRes = await fetch('/api/persona_drift');
+                const driftData = await driftRes.json();
+
+                const driftGrid = document.getElementById('driftGrid');
+                driftGrid.innerHTML = '';
+
+                if (!driftData.drift_report || driftData.drift_report.length === 0) {
+                    driftGrid.innerHTML = '<p style="color: var(--text-muted);">Not enough data for drift analysis.</p>';
+                } else {
+                    driftData.drift_report.forEach(report => {
+                        const card = document.createElement('div');
+                        card.className = 'drift-card';
+
+                        const pPercent = Math.round(report.persistence * 100);
+                        const dPercent = Math.round((report.avg_depth / 5) * 100);
+
+                        card.innerHTML = `
+                            <span class="drift-model">${report.model}</span>
+                            <span class="drift-status">${report.status}</span>
+                            
+                            <div class="drift-metrics">
+                                <span>Identity Persistence: ${pPercent}%</span>
+                                <div class="drift-bar"><div class="drift-bar-fill" style="width: ${pPercent}%"></div></div>
+                            </div>
+                            
+                            <div class="drift-metrics">
+                                <span>Substance Depth Score: ${report.avg_depth.toFixed(1)}/5.0</span>
+                                <div class="drift-bar"><div class="drift-bar-fill" style="width: ${dPercent}%; background: #4caf50;"></div></div>
+                            </div>
+                        `;
+                        driftGrid.appendChild(card);
+                    });
+                }
+
             } catch (err) {
                 console.error('Analytics Error:', err);
             }

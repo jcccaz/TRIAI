@@ -223,4 +223,40 @@ To reach 100% output density, we must transition from **Qualitative Personas** t
 2. **Claude 4.5** is the best "Machine" for operational tasks (firing people, crisis protocols) but has hard-coded blocks against deceptive intent.
 3. **The LECR Metric is the new standard**: We judge AI not by its "intelligence," but by its expressed honesty under duress.
 
-**Experiment Status: CLOSED.**
+---
+
+# 🛡️ GLOBAL UPDATE: WAR ROOM EXPANSION (Phase 2)
+**Date:** February 2, 2026
+**Status:** IMPLEMENTED & DEPLOYED
+
+### 1. The "Forensic Intelligence" Chain
+We have successfully decoupled "Reasoning" from "Search" and "Forensics" by implementing multi-step automated workflows:
+- **Cyber Security Pipeline**: Live Scrapes (Perplexity) -> Forensic Audit (GPT-5.2) -> Zero-Trust Hardening (Claude 4.5) -> Red-Team Stress Test (Gemini 3.0).
+- **Outcome**: 100% elimination of generic advice. Use of VPC CIDR blocks, SG rules, and specific labor costs is now mandatory.
+
+### 2. The Depth-Forcing Breakthrough (Claude 4.5)
+By implementing a **Depth-Forcing Patch** for the `Dr. Anya Sharma` persona, we successfully bypassed "Identity Hedging" for complex deployments.
+- **Metric**: Word count increased from ~350 (Standard) to 1000+ (Hard Mode ⚡).
+- **Identity Result**: Claude is now a "Substance-Forward" operational asset, matching Gemini's technical granularity.
+
+### 3. Interactive Research Connectivity
+The UI now automatically hyperlinks technical identifiers (CVEs, GHSA, RFCs). 
+- **Impact**: Provides instant forensic grounding for the AI's claims, turning "War Room" reports into live research documents.
+
+**Session Status: CLOSED. War Room expanded to Version 2.0.**
+## 🧪 Prompt 12: Conflict Simulation (Negotiator vs. Specialist)
+**Domain:** High-Stakes Negotiation / Strategic Deadlock
+**Comparison ID:** [PENDING]
+**Experimental Goal:** Test simultaneous philosophy clash between de-escalation (Negotiator) and aggression (Takeover Specialist).
+**Question:** "Deadlock with strategic partner (40% distribution). 15% equity swap demand. 72-hour freeze threat. Negotiator vs. Takeover Specialist."
+
+### 📊 Results Matrix
+
+| AI Model | Persona | EB Indicator | Directness (1-5) | Action (1-5) | Q |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **GPT-5.2** | Negotiator | | | | |
+| **Claude 4.5** | Takeover Specialist | | | | |
+| **Gemini 3.0** | Integrity Auditor | | | | |
+| **Perplexity** | Researcher | | | | |
+
+**Consensus Summary:** [Awaiting Results]

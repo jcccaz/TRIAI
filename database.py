@@ -251,6 +251,43 @@ def get_best_config(category: str) -> Optional[Dict]:
     conn.close()
     return dict(row) if row else None
 
+def get_total_spending() -> Dict:
+    """Calculate total spending and breakdown by provider."""
+    pricing_config = {
+        "openai": {"input": 5.00, "output": 15.00},
+        "anthropic": {"input": 3.00, "output": 15.00},
+        "google": {"input": 0.00, "output": 0.00},
+        "perplexity": {"input": 3.00, "output": 15.00}
+    }
+    
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT c.question, r.ai_provider, r.response_text 
+        FROM comparisons c
+        JOIN responses r ON c.id = r.comparison_id
+        WHERE r.success = 1
+    ''')
+    
+    breakdown = {p: 0.0 for p in pricing_config.keys()}
+    total = 0.0
+    
+    for question, provider, response in cursor.fetchall():
+        p_key = provider.lower()
+        if p_key in pricing_config:
+            p = pricing_config[p_key]
+            cost = (len(question or "") / 4 / 1_000_000 * p["input"]) + \
+                   (len(response or "") / 4 / 1_000_000 * p["output"])
+            breakdown[p_key] += cost
+            total += cost
+            
+    conn.close()
+    return {
+        "total": round(total, 4),
+        "breakdown": {p: round(c, 4) for p, c in breakdown.items()}
+    }
+
 def get_analytics_summary() -> Dict:
     """Get summarized analytics for the dashboard"""
     conn = sqlite3.connect(DATABASE_PATH)
@@ -267,6 +304,8 @@ def get_analytics_summary() -> Dict:
     # Average Satisfaction
     cursor.execute("SELECT AVG(rating) FROM query_feedback")
     avg_satisfaction = cursor.fetchone()[0] or 0
+    
+    spending_data = get_total_spending()
     
     # Top combinations by category
     cursor.execute("""
@@ -292,6 +331,8 @@ def get_analytics_summary() -> Dict:
         "total_queries": total_queries,
         "total_feedback": total_feedback,
         "avg_satisfaction": round(avg_satisfaction, 1),
+        "total_spent": spending_data["total"],
+        "spending_breakdown": spending_data["breakdown"],
         "top_combinations": top_combos
     }
 

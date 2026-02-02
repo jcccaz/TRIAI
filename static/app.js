@@ -838,7 +838,17 @@ function formatMarkdown(text) {
     text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
-    // 4.1 Images (New Support)
+    // 4.1 Technical Auto-Linking (CVE, GHSA, RFC)
+    // CVEs: CVE-YYYY-NNNN
+    text = text.replace(/(CVE-\d{4}-\d{4,7})/gi, '<a href="https://nvd.nist.gov/vuln/detail/$1" target="_blank" class="tech-link">$1</a>');
+
+    // GHSA: GHSA-xxxx-xxxx-xxxx
+    text = text.replace(/(GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})/gi, '<a href="https://github.com/advisories/$1" target="_blank" class="tech-link">$1</a>');
+
+    // RFC: RFC NNNN
+    text = text.replace(/RFC (\d+)/gi, '<a href="https://datatracker.ietf.org/doc/html/rfc$1" target="_blank" class="tech-link">RFC $1</a>');
+
+    // 4.2 Images (New Support)
     text = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" style="max-width:100%; border-radius:4px; margin: 10px 0;">');
 
     // 5. Line breaks (only in non-code text)
@@ -1458,6 +1468,35 @@ function updateListenButton(isSpeaking) {
         listenBtn.style.color = '';
     }
 }
+
+// 4. Individual Card Download
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.download-card-btn');
+    if (btn) {
+        const target = btn.dataset.target;
+        const respData = responses[target];
+        if (!respData || !respData.response) return;
+
+        const question = questionInput.value.trim() || "Untitled Query";
+        const modelName = respData.model.textContent || target.toUpperCase();
+        const content = respData.response.innerText;
+        const timestamp = new Date().toLocaleString();
+
+        let md = `# TriAI Individual Report: ${target.toUpperCase()}\n\n`;
+        md += `**Query:** ${question}\n`;
+        md += `**Model:** ${modelName}\n`;
+        md += `**Date:** ${timestamp}\n\n`;
+        md += `---\n\n${content}\n`;
+
+        const blob = new Blob([md], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `TriAI_${target}_${new Date().getTime()}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+});
 
 // ==================== //
 // Council Mode Role Selectors

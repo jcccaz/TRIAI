@@ -304,5 +304,141 @@ MANDATORY SECTIONS:
 OUTPUT DENSITY: 100%. ZERO HEDGING."""
     }
         ]
+    },
+    "cyber_security": {
+        "name": "Cyber Security Pipeline",
+        "description": "Research -> Vulnerability Audit -> Forensic Hardening -> Red-Team Stress Test.",
+        "steps": [
+            {
+                "id": 1,
+                "key": "research",
+                "role": "researcher",
+                "model": "perplexity",
+                "instruction": "Perform deep vulnerability research for: {user_input}. Identify known CVEs, common attack vectors, and recent breach patterns in this domain."
+            },
+            {
+                "id": 2,
+                "key": "audit",
+                "role": "integrity",
+                "model": "openai",
+                "instruction": "Act as Dr. Kaelen Voss. Create a specialized LOGIC AUDIT for {user_input} based on research: {previous_context[research]}. Focus on bypasses and hidden vulnerabilities."
+            },
+            {
+                "id": 3,
+                "key": "hardening",
+                "role": "containment",
+                "model": "anthropic",
+                "instruction": "Act as Dr. Anya Sharma. Design a forensic hardening architecture and zero-trust implementation plan based on the audit: {previous_context[audit]}."
+            },
+            {
+                "id": 4,
+                "key": "red_team",
+                "role": "critic",
+                "model": "google",
+                "instruction": "Act as Dr. Aris Thorne. Perform a Red-Team Stress Test on the hardening plan: {previous_context[hardening]}. Identify the single point of failure and provide the 'Nuclear Option' for breach containment."
+            }
+        ]
+    },
+    "software_dev": {
+        "name": "Software Development Stack",
+        "description": "Market Scan -> Architecture -> Prototyping -> Logic-Bomb Audit.",
+        "steps": [
+            {
+                "id": 1,
+                "key": "scan",
+                "role": "researcher",
+                "model": "perplexity",
+                "instruction": "Market Scan: Research the current tech stack landscape for {user_input}."
+            },
+            {
+                "id": 2,
+                "key": "architecture",
+                "role": "architect",
+                "model": "openai",
+                "instruction": "Systems Architecture: Create a high-level technical design and data model for {user_input} using research: {previous_context[scan]}."
+            },
+            {
+                "id": 3,
+                "key": "prototype",
+                "role": "optimizer",
+                "model": "anthropic",
+                "instruction": "Code Prototyping: Generate a production-ready core logic implementation based on architecture: {previous_context[architecture]}."
+            },
+            {
+                "id": 4,
+                "key": "audit",
+                "role": "critic",
+                "model": "google",
+                "instruction": "Technical Critic: Perform a rigorous edge-case review and logic-bomb audit of the prototype: {previous_context[prototype]}."
+            }
+        ]
+    },
+    "telecom_eng": {
+        "name": "Telecom Network Engineer",
+        "description": "Infrastructure Research -> Carrier Architecture -> Optical/RAN Optimization -> Reliability Stress Test.",
+        "steps": [
+            {
+                "id": 1,
+                "key": "infra_scan",
+                "role": "researcher",
+                "model": "perplexity",
+                "instruction": "Telecom Infrastructure Scan: Research current 5G/RAN architecture, Fiber/FiOS standards (XGS-PON), and carrier-grade spectrum allocation relevant to: {user_input}."
+            },
+            {
+                "id": 2,
+                "key": "carrier_arch",
+                "role": "telecom",
+                "model": "openai",
+                "instruction": "Carrier Architecture: Design the core network fabric and backhaul logistics for {user_input} using research: {previous_context[infra_scan]}."
+            },
+            {
+                "id": 3,
+                "key": "optimization",
+                "role": "optical_eng",
+                "model": "anthropic",
+                "instruction": "Optical & RF Optimization: Provide specific dbm loss calculations and WDM grid spacing for signal integrity in the current environment: {previous_context[carrier_arch]}. Identify the exact coexistence filtering requirements."
+            },
+            {
+                "id": 4,
+                "key": "stress_test",
+                "role": "critic",
+                "model": "google",
+                "instruction": "Reliability Stress Test: Act as Dr. Aris Thorne. Perform a failure-mode analysis on the carrier design: {previous_context[optimization]}. Identify single points of failure in the backhaul or core path."
+            }
+        ]
+    },
+    "network_eng": {
+        "name": "Computer Network Engineer",
+        "description": "Protocol Forensics -> DC Architecture -> Forensic Security Layer -> Latency Audit.",
+        "steps": [
+            {
+                "id": 1,
+                "key": "protocol_forensics",
+                "role": "researcher",
+                "model": "perplexity",
+                "instruction": "Protocol Forensics: Deep dive into Layer 2/3 requirements (BGP, OSPF, VxLAN) and relevant RFCs for {user_input}."
+            },
+            {
+                "id": 2,
+                "key": "dc_arch",
+                "role": "network",
+                "model": "openai",
+                "instruction": "Data Center Architecture: Design the Spine-Leaf fabric, IPAM schema, and load-balancing strategy for {user_input} using: {previous_context[protocol_forensics]}."
+            },
+            {
+                "id": 3,
+                "key": "security_layer",
+                "role": "containment",
+                "model": "anthropic",
+                "instruction": "Architectural Integrity Guardrails: Act as Dr. Anya Sharma. Design the enterprise data privacy guardrails and administrative access control policies for the fabric: {previous_context[dc_arch]}. Focus on ensuring absolute tenant isolation and compliance-driven packet-flow integrity."
+            },
+            {
+                "id": 4,
+                "key": "latency_audit",
+                "role": "critic",
+                "model": "google",
+                "instruction": "Latency & Throughput Audit: Perform a rigorous bottleneck detection and jitter analysis on the network plan: {previous_context[security_layer]}."
+            }
+        ]
     }
 }
