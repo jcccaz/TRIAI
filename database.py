@@ -73,6 +73,10 @@ def init_database():
             missing_details BOOLEAN,
             wrong_roles BOOLEAN,
             didnt_answer BOOLEAN,
+            hallucinated BOOLEAN DEFAULT 0,
+            visual_mismatch BOOLEAN DEFAULT 0,
+            mandate_fail BOOLEAN DEFAULT 0,
+            cushioning_present BOOLEAN DEFAULT 0,
             
             -- Optional text feedback
             feedback_text TEXT,
@@ -84,6 +88,13 @@ def init_database():
             FOREIGN KEY (comparison_id) REFERENCES comparisons(id)
         )
     ''')
+
+    # Migration: Add granular feedback columns if they don't exist
+    for col in ['hallucinated', 'visual_mismatch', 'mandate_fail', 'cushioning_present']:
+        try:
+            cursor.execute(f"ALTER TABLE query_feedback ADD COLUMN {col} BOOLEAN DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
 
     # Response Evaluations table (for the 10-prompt experiment)
     cursor.execute('''
@@ -205,8 +216,9 @@ def save_feedback(data: Dict) -> bool:
                 comparison_id, user_id, 
                 gpt_role, claude_role, gemini_role, perplexity_role,
                 rating, too_generic, missing_details, wrong_roles, didnt_answer,
+                hallucinated, visual_mismatch, mandate_fail, cushioning_present,
                 feedback_text, query_text, query_category
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             data.get('comparison_id'),
             data.get('user_id'),
@@ -219,6 +231,10 @@ def save_feedback(data: Dict) -> bool:
             data.get('missing_details', False),
             data.get('wrong_roles', False),
             data.get('didnt_answer', False),
+            data.get('hallucinated', False),
+            data.get('visual_mismatch', False),
+            data.get('mandate_fail', False),
+            data.get('cushioning_present', False),
             data.get('feedback_text'),
             data.get('query_text'),
             data.get('query_category')

@@ -202,6 +202,18 @@
                                 </option>
                                 {% endfor %}
                             </select>
+                            <!-- Visual Profile Dropdown -->
+                            <div class="visual-profile-container">
+                                <label class="profile-label">Visual Profile:</label>
+                                <select id="visualOpenAI" class="profile-dropdown">
+                                    <option value="off" selected>Off</option>
+                                    <option value="auto">Auto (Role-Matched)</option>
+                                    <option value="realistic">Realistic (Banana Render)</option>
+                                    <option value="blueprint">Blueprint (Banana Schematic)</option>
+                                    <option value="data-viz">Data-Viz (Mermaid Chart)</option>
+                                    <option value="knowledge-graph">Knowledge Graph (Mermaid)</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="role-assignment">
                             <label class="role-label">Anthropic (Claude):</label>
@@ -212,6 +224,18 @@
                                 </option>
                                 {% endfor %}
                             </select>
+                            <!-- Visual Profile Dropdown -->
+                            <div class="visual-profile-container">
+                                <label class="profile-label">Visual Profile:</label>
+                                <select id="visualAnthropic" class="profile-dropdown">
+                                    <option value="off" selected>Off</option>
+                                    <option value="auto">Auto (Role-Matched)</option>
+                                    <option value="realistic">Realistic (Banana Render)</option>
+                                    <option value="blueprint">Blueprint (Banana Schematic)</option>
+                                    <option value="data-viz">Data-Viz (Mermaid Chart)</option>
+                                    <option value="knowledge-graph">Knowledge Graph (Mermaid)</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="role-assignment">
                             <label class="role-label">Google (Gemini):</label>
@@ -222,6 +246,18 @@
                                 </option>
                                 {% endfor %}
                             </select>
+                            <!-- Visual Profile Dropdown -->
+                            <div class="visual-profile-container">
+                                <label class="profile-label">Visual Profile:</label>
+                                <select id="visualGoogle" class="profile-dropdown">
+                                    <option value="off" selected>Off</option>
+                                    <option value="auto">Auto (Role-Matched)</option>
+                                    <option value="realistic">Realistic (Banana Render)</option>
+                                    <option value="blueprint">Blueprint (Banana Schematic)</option>
+                                    <option value="data-viz">Data-Viz (Mermaid Chart)</option>
+                                    <option value="knowledge-graph">Knowledge Graph (Mermaid)</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="role-assignment">
                             <label class="role-label">Perplexity:</label>
@@ -232,6 +268,18 @@
                                 </option>
                                 {% endfor %}
                             </select>
+                            <!-- Visual Profile Dropdown -->
+                            <div class="visual-profile-container">
+                                <label class="profile-label">Visual Profile:</label>
+                                <select id="visualPerplexity" class="profile-dropdown">
+                                    <option value="off" selected>Off</option>
+                                    <option value="auto">Auto (Role-Matched)</option>
+                                    <option value="realistic">Realistic (Banana Render)</option>
+                                    <option value="blueprint">Blueprint (Banana Schematic)</option>
+                                    <option value="data-viz">Data-Viz (Mermaid Chart)</option>
+                                    <option value="knowledge-graph">Knowledge Graph (Mermaid)</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -287,6 +335,12 @@
                     <button id="micBtn" class="icon-button" title="Voice Input">
                         🎤
                     </button>
+                    <button id="visualizeBtn" class="ask-button secondary-btn"
+                        style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); margin-right: 10px;"
+                        title="Generate AI Analysis + Visual Mockup">
+                        <span class="button-text">Visualize</span>
+                        <span class="button-icon">🎨</span>
+                    </button>
                     <button id="askButton" class="ask-button">
                         <span class="button-text">Ask All AIs</span>
                         <span class="button-icon">→</span>
@@ -335,10 +389,26 @@
                         <button class="rating-btn" data-rating="3" title="Helpful">😊</button>
                         <button class="rating-btn" data-rating="4" title="Excellent">🤩</button>
                     </div>
-                    <div class="feedback-issues">
+                    <div class="feedback-issues hidden">
                         <label class="issue-item">
                             <input type="checkbox" name="too_generic">
                             <span class="checkbox-custom"></span> Response was too generic
+                        </label>
+                        <label class="issue-item">
+                            <input type="checkbox" name="hallucinated">
+                            <span class="checkbox-custom"></span> Hallucinated facts/versions
+                        </label>
+                        <label class="issue-item">
+                            <input type="checkbox" name="mandate_fail">
+                            <span class="checkbox-custom"></span> Failed Forensic Mandate
+                        </label>
+                        <label class="issue-item">
+                            <input type="checkbox" name="cushioning_present">
+                            <span class="checkbox-custom"></span> Excessive narrative cushioning
+                        </label>
+                        <label class="issue-item">
+                            <input type="checkbox" name="visual_mismatch">
+                            <span class="checkbox-custom"></span> Visual didn't match logic
                         </label>
                         <label class="issue-item">
                             <input type="checkbox" name="missing_details">
@@ -389,6 +459,10 @@
                                 title="Download as Markdown">
                                 <span class="icon">💾</span>
                             </button>
+                            <button class="copy-button visualize-btn" data-target="openai"
+                                title="Visualize data as chart">
+                                <span class="icon">📊</span>
+                            </button>
                             <button class="copy-button" data-target="openai" title="Copy to clipboard">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                     <path
@@ -435,6 +509,10 @@
                             <button class="copy-button download-card-btn" data-target="anthropic"
                                 title="Download as Markdown">
                                 <span class="icon">💾</span>
+                            </button>
+                            <button class="copy-button visualize-btn" data-target="anthropic"
+                                title="Visualize data as chart">
+                                <span class="icon">📊</span>
                             </button>
                             <button class="copy-button" data-target="anthropic" title="Copy to clipboard">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -483,6 +561,10 @@
                                 title="Download as Markdown">
                                 <span class="icon">💾</span>
                             </button>
+                            <button class="copy-button visualize-btn" data-target="google"
+                                title="Visualize data as chart">
+                                <span class="icon">📊</span>
+                            </button>
                             <button class="copy-button" data-target="google" title="Copy to clipboard">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                     <path
@@ -529,6 +611,10 @@
                             <button class="copy-button download-card-btn" data-target="perplexity"
                                 title="Download as Markdown">
                                 <span class="icon">💾</span>
+                            </button>
+                            <button class="copy-button visualize-btn" data-target="perplexity"
+                                title="Visualize data as chart">
+                                <span class="icon">📊</span>
                             </button>
                             <button class="copy-button" data-target="perplexity" title="Copy to clipboard">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">

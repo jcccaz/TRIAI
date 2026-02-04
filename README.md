@@ -1,178 +1,261 @@
-<<<<<<< HEAD
-# TriAI Compare - Multi-AI Response Comparison Tool
+# 🎯 TriAI Compare
+### Forensic AI Response Analysis & Comparison Framework
 
-A sleek web application that sends your question to three major AI services (OpenAI, Anthropic, Google) simultaneously and displays their responses side-by-side for easy comparison.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
-## Features
+**TriAI Compare** is a professional AI response analysis tool that goes beyond simple chat interfaces. It provides **forensic-level analysis** of how different AI models (GPT-4o, Claude 4.5, Gemini 2.5, Perplexity) respond to the same prompt, with unique features like **Council Mode**, **Hard Mode execution**, and **Execution Bias detection**.
 
-✨ **Four AI Services**: Query GPT-4o, Claude 3.5 Sonnet, Gemini 3.0, and Perplexity Pro simultaneously  
-⚡ **Parallel Processing**: Get all responses at the same time  
-🎙️ **Podcast Mode**: Listen to AIs debate your question in a generated podcast format  
-🧠 **Vault Context**: Securely search your local Obsidian notes for context  
-📊 **Mermaid Diagrams**: Automatically render architecture charts and flows  
-📂 **Project Memory**: Remembers your recent project interactions  
-⏱️ **Response Time & Cost**: Track speed and estimated cost per query  
-🎨 **Premium 'Gold Noir' UI**: Digital Brutalism aesthetic  
+While tools like Abacus.ai and ChatGPT exist, TriAI Compare is built for **researchers, developers, and power users** who need deep comparative analysis, not just chat responses.
 
-## Setup Instructions
+---
 
-### 1. Install Dependencies
+## 🚀 What Makes This Different?
+
+### 1. **Council Mode** 🏛️
+Assign specific **expert roles** to each AI model:
+- **GPT-5.2**: Visionary / Business Strategist
+- **Claude 4.5**: System Architect / Security Expert
+- **Gemini 3.0**: Research Lead / Data Scientist
+- **Perplexity Pro**: Real-time Researcher
+
+Get structured, role-based advice instead of generic responses.
+
+### 2. **Hard Mode Execution** ⚡
+Anti-sandbagging protocols that force AI models to:
+- Provide specific numbers, not vague estimates
+- Skip safety theater and narrative cushioning
+- Deliver actionable insights, not generic advice
+- Use forensic reasoning with `<thinking>` tags
+
+### 3. **Execution Bias Detection** 🔍
+Automatically classifies responses as:
+- **Action-Forward**: Direct, executable steps
+- **Advisory**: Strategic recommendations
+- **Narrative**: Contextual analysis
+
+### 4. **Visual Fabrication Engine** 🎨
+Generate visuals directly from AI responses:
+- Data visualizations (charts, graphs)
+- Knowledge graphs (relationships, flows)
+- Technical blueprints
+- Realistic mockups
+
+### 5. **Forensic Analysis** 🧠
+- Extract hidden `<thinking>` tags to see AI reasoning
+- Track "self-selected personas" when AI chooses its own expert identity
+- Measure response depth vs. thought process length
+- Cost tracking per query
+
+### 6. **Multi-Modal Support** 📎
+- Upload PDFs, images, text files
+- AI analyzes document content
+- Image-based queries supported
+
+### 7. **Persistent History** 💾
+- SQLite database stores all comparisons
+- Search past queries
+- Export results
+- Analytics dashboard
+
+---
+
+## ⚙️ Installation
+
+### Prerequisites
+- Python 3.8+
+- API Keys for:
+  - [OpenAI](https://platform.openai.com/)
+  - [Anthropic](https://console.anthropic.com/)
+  - [Google AI](https://makersuite.google.com/app/apikey)
+  - [Perplexity](https://www.perplexity.ai/settings/api) (optional)
+
+### Quick Start
 
 ```bash
-cd tri_ai_compare
+# 1. Clone the repository
+git clone https://github.com/YOUR_USERNAME/triai-compare.git
+cd triai-compare
+
+# 2. Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# 3. Install dependencies
 pip install -r requirements.txt
+
+# 4. Create .env file
+# Create a .env file in the project root with your API keys:
 ```
 
-### 2. Configure API Keys
-
-Create a `.env` file:
-
+**`.env` file content:**
 ```env
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
-GOOGLE_API_KEY=...
+GOOGLE_API_KEY=AIza...
 PERPLEXITY_API_KEY=pplx-...
 ```
 
-### 3. Run the Application
-
 ```bash
+# 5. Run the app
 python app.py
 ```
 
-Visit `http://localhost:5000`
-
-## Structure
-
-```
-tri_ai_compare/
-├── app.py                 # Flask backend (API + Logic)
-├── database.py            # SQLite History
-├── project_manager.py     # Session Memory
-├── templates/index.html   # Main Interface
-├── static/
-│   ├── style.css         # Gold Noir CSS
-│   └── app.js            # Frontend Logic
-└── Procfile               # Deployment Config
-```
-
-## Roadmap
-
-- [x] Add Perplexity AI
-- [x] Podcast Audio Mode
-- [x] Obsidian Integration
-- [x] Diagram Generation (Mermaid)
-- [ ] User Auth / Monetization
-- [ ] Cloud Deployment
-- [ ] Mobile App Wrapper
+Open your browser to `http://localhost:5000`
 
 ---
 
-Built for the **FrankNet** Workstation.
-=======
-# TriAI Compare - Multi-AI Response Comparison Tool
+## 🎮 Usage
 
-A sleek web application that sends your question to three major AI services (OpenAI, Anthropic, Google) simultaneously and displays their responses side-by-side for easy comparison.
+### Basic Comparison
+1. Enter your question in the text box
+2. Click "Compare Responses"
+3. Get side-by-side responses from all 4 AI models
 
-## Features
+### Council Mode
+1. Enable "Council Mode" toggle
+2. Assign roles to each AI (Architect, Strategist, Researcher, etc.)
+3. AI models respond from their assigned expert perspective
 
-✨ **Three AI Services in One**: Query GPT-4, Claude 3.5 Sonnet, and Gemini Pro simultaneously  
-⚡ **Parallel Processing**: Get all responses at the same time  
-⏱️ **Response Time Tracking**: See how fast each AI responds  
-📋 **Copy to Clipboard**: Easily copy any response  
-🎨 **Premium Dark UI**: Beautiful, modern interface with smooth animations  
-⌨️ **Keyboard Shortcuts**: Press Ctrl/Cmd + Enter to submit
+### Hard Mode
+1. Enable "Hard Mode" toggle
+2. AI models bypass safety theater and provide direct, actionable advice
+3. Responses include mandatory `<thinking>` reasoning tags
 
-## Setup Instructions
+### Visual Generation
+1. Select a visual profile (Data Viz, Knowledge Graph, Blueprint, etc.)
+2. AI responses automatically include generated visuals
 
-### 1. Install Dependencies
+---
+
+## 🏗️ Architecture
+
+```
+triai-compare/
+├── app.py                  # Main Flask application
+├── database.py             # SQLite database manager
+├── council_roles.py        # Council Mode role definitions
+├── visuals.py              # Visual generation engine
+├── workflows.py            # Domain-adaptive workflows
+├── file_processor.py       # Multi-modal file handling
+├── templates/
+│   └── index.html          # Frontend UI
+├── static/
+│   ├── app.js              # Frontend logic
+│   ├── css/                # Styles
+│   └── img/fabricated/     # Generated visuals
+└── requirements.txt        # Python dependencies
+```
+
+---
+
+## 🧪 Testing
 
 ```bash
-cd tri_ai_compare
-pip install -r requirements.txt
+# Test all API connections
+python test_apis.py
+
+# Should output:
+# ✅ GPT-4o WORKING!
+# ✅ Claude Sonnet 4 WORKING!
+# ✅ Gemini 2.5 WORKING!
+# ✅ Perplexity Pro WORKING!
 ```
 
-### 2. Configure API Keys
+---
 
-You'll need API keys from three services:
+## 🔧 Configuration
 
-- **OpenAI**: Get from https://platform.openai.com/api-keys
-- **Anthropic**: Get from https://console.anthropic.com/
-- **Google AI**: Get from https://makersuite.google.com/app/apikey
+### Council Roles Customization
 
-#### Option A: Environment Variables (Recommended)
-
-Create a `.env` file in the `tri_ai_compare` directory:
-
-```env
-OPENAI_API_KEY=your-openai-key-here
-ANTHROPIC_API_KEY=your-anthropic-key-here
-GOOGLE_API_KEY=your-google-key-here
-```
-
-#### Option B: Direct in Code
-
-Edit `app.py` and replace the placeholder values:
+Edit `council_roles.py` to add your own expert roles:
 
 ```python
-OPENAI_API_KEY = 'your-openai-key-here'
-ANTHROPIC_API_KEY = 'your-anthropic-key-here'
-GOOGLE_API_KEY = 'your-google-key-here'
+COUNCIL_ROLES = {
+    "your_custom_role": {
+        "name": "Custom Expert",
+        "prompt": "Your custom system prompt here",
+        "emoji": "🎯"
+    }
+}
 ```
-
-### 3. Run the Application
-
-```bash
-python app.py
-```
-
-The app will start at `http://localhost:5000`
-
-## Usage
-
-1. Open your browser to `http://localhost:5000`
-2. Enter your question in the text area
-3. Click "Ask All AIs" or press Ctrl/Cmd + Enter
-4. Watch as all three AIs respond in parallel
-5. Compare responses, check response times, and copy text as needed
-
-## Tech Stack
-
-- **Backend**: Python Flask
-- **Frontend**: Vanilla JavaScript, HTML, CSS
-- **AI APIs**: OpenAI, Anthropic, Google Generative AI
-- **Design**: Premium dark theme with gradient accents
-
-## Project Structure
-
-```
-tri_ai_compare/
-├── app.py                 # Flask backend
-├── requirements.txt       # Python dependencies
-├── templates/
-│   └── index.html        # Main HTML template
-└── static/
-    ├── style.css         # Styles
-    └── app.js            # Frontend JavaScript
-```
-
-## Notes
-
-- API calls may incur costs depending on your usage and plan
-- Ensure you have sufficient API credits/quota for all three services
-- Response times vary based on network conditions and API availability
-- The app uses parallel execution for faster results
-
-## Future Enhancements
-
-- [ ] Add more AI models (Mistral, Cohere, etc.)
-- [ ] Save comparison history
-- [ ] Export comparisons as PDF/Markdown
-- [ ] Add streaming responses
-- [ ] Token usage tracking
-- [ ] Custom model selection
 
 ---
 
-Built with ❤️ for comparing AI perspectives
->>>>>>> 6added3 (Initial commit: TriApp multi-AI comparison tool with GPT-5.2, Claude 4.5 Sonnet, Gemini 3.0, and Perplexity Pro support)
+## 📊 Use Cases
+
+### For Researchers
+- Compare how different AI models interpret academic questions
+- Analyze response bias and model alignment
+- Export data for research papers
+
+### For Developers
+- Test AI model performance on technical queries
+- Evaluate which model is best for specific tasks
+- Benchmark response quality
+
+### For Business Analysts
+- Get multi-perspective strategic advice (Council Mode)
+- Evaluate AI models for business use cases
+- Cost-compare AI services
+
+### For Writers & Content Creators
+- See different creative approaches from each model
+- Compare writing styles and tone
+- Generate visual content ideas
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+**Areas we'd love help with:**
+- New Council Mode roles (Legal Expert, Medical Advisor, etc.)
+- Additional visual generation profiles
+- UI/UX improvements
+- Documentation and tutorials
+- Bug reports and feature requests
+
+---
+
+## 📜 License
+
+MIT License - See [LICENSE](LICENSE) for details.
+
+This means you can:
+- ✅ Use commercially
+- ✅ Modify and distribute
+- ✅ Use privately
+- ✅ Patent use
+
+---
+
+## 🙏 Acknowledgments
+
+- **OpenAI** for GPT-4o API
+- **Anthropic** for Claude 4.5 Sonnet API
+- **Google** for Gemini 2.5 API
+- **Perplexity** for Sonar Pro API
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] Add support for Mistral AI
+- [ ] Team collaboration features
+- [ ] API rate limiting and queue management
+- [ ] Advanced analytics dashboard
+- [ ] Chrome extension for one-click comparisons
+- [ ] Export to Markdown, PDF, CSV
+- [ ] Self-hosted deployment guides (Docker, Railway, Vercel)
+
+---
+
+## ⭐ Star This Repo
+
+If you find this useful, please star the repo! It helps others discover the project.
+
+---
+
+**Built with ❤️ by Carlo | Powered by AI, Analyzed by Humans**

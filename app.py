@@ -6,12 +6,16 @@ import time
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
+
+# Load environment variables from .env file FIRST
+load_dotenv()
+
 import threading
 import uuid
 import openai
 import anthropic
-# LEGACY SDK as requested for stability
-import google.generativeai as genai 
+# NEW SUPPORTED SDK (google-generativeai reached EOL Nov 30, 2025)
+from google import genai 
 import requests
 import base64
 from pathlib import Path
@@ -21,12 +25,14 @@ from project_manager import ProjectManager
 from council_roles import COUNCIL_ROLES, DEFAULT_ASSIGNMENTS
 from workflows import WORKFLOW_TEMPLATES, Workflow
 from persona_synthesizer import analyze_persona_drift
-
-# Load environment variables from .env file
-load_dotenv()
+from visuals import visuals_bp, get_style_for_role, fabricate_and_persist_visual
+from deployment_platforms import PLATFORMS
 
 app = Flask(__name__)
 CORS(app)
+
+# Register Blueprints
+app.register_blueprint(visuals_bp)
 
 # Configure API clients
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', 'your-openai-key-here')
@@ -35,7 +41,7 @@ GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'your-google-key-here')
 PERPLEXITY_API_KEY = os.getenv('PERPLEXITY_API_KEY', 'your-perplexity-key-here')
 
 anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-genai.configure(api_key=GOOGLE_API_KEY)
+google_client = genai.Client(api_key=GOOGLE_API_KEY)
 
 # Initialize Project Manager
 project_manager = ProjectManager()
@@ -146,9 +152,16 @@ def extract_thought(text: str) -> Tuple[str, str]:
         clean_content = re.sub(r'<thinking>.*?</thinking>', '', text, flags=re.DOTALL | re.IGNORECASE).strip()
         
     # Fallback: If clean_content is completely empty but thought exists, return thought as response too
-    if not clean_content and thought:
-        clean_content = text # Keep original structure if we accidentally stripped everything
-        
+    if not clean_content.strip() and thought:
+        # If we have thought but no clean content, the model likely put everything in <thinking>
+        # but we need to show the response. However, usually they shouldn't do that.
+        # Let's keep the original text if we find no content outside the tags.
+        content_outside = re.sub(r'<thinking>.*?</thinking>', '', text, flags=re.DOTALL | re.IGNORECASE).strip()
+        if not content_outside:
+             clean_content = text # Just show the raw text including tags if they messed up
+        else:
+             clean_content = content_outside
+             
     return thought, clean_content
 
 def extract_persona(text: str) -> Optional[str]:
@@ -211,18 +224,40 @@ def determine_execution_bias(response_text: str) -> str:
     else:
         return "advisory"
 
-def generate_visual_mockup(prompt):
-    """Central function to generate high-fidelity visuals using DALL-E 3."""
+def get_visual_mandate(profile: str) -> str:
+    """Returns a specific mandate to force the AI to provide data for the visual engine."""
+    if profile == 'off':
+        return ""
+    
+    if profile in ['data-viz', 'knowledge-graph']:
+        return f"""
+### VISUAL OUTPUT MANDATE (MERMAID) ###
+Your response MUST include a detailed numerical or relational breakdown specifically for a {profile.upper()}.
+- FOR DATA-VIZ: Include exact percentages, dollar amounts, or performance scores. Do not just describe a chart; provide the raw data points clearly.
+- FOR KNOWLEDGE-GRAPH: Explicitly define the relationships and logical nodes.
+The backend will use your analysis to render a Mermaid.js diagram. If you omit the data, the visualization will fail."""
+    
+    return f"""
+### VISUAL OUTPUT MANDATE (FABRICATION) ###
+Your response will be used to generate a {profile.upper()} visual. 
+- You MUST provide extreme sensory and technical granularity in your description of physical systems, bottlenecks, or architectures.
+- Use literal technical terms (e.g. "heat-sink fin density", "10Gbps SFP+ latching mechanism").
+- Avoid generic aesthetic descriptions; focus on the literal technical composition."""
+
+def is_visual_request(text):
+    """Detect if the user is asking for a visual representation."""
+    triggers = [
+        'generate an image', 'create an image', 'draw an image', 'make an image', 
+        'visual mockup', 'diagram', 'schematic', 'visualize', 'blueprint', 
+        'illustration', 'sketch', 'render'
+    ]
+    return any(trigger in text.lower() for trigger in triggers)
+
+def generate_visual_mockup(prompt, role='general'):
+    """Central function to generate persistent visuals using THE FABRICATOR logic."""
     try:
-        client = openai.OpenAI(api_key=OPENAI_API_KEY)
-        response = client.images.generate(
-            model="dall-e-3",
-            prompt=f"Professional visual mockup for: {prompt}. AESTHETIC: High-stakes Adventure Journalism. Raw cinematographic depth, heavy film grain, environmental grit (fog, dust, or rain). High-contrast Leica-style photography. Focus on texture and atmosphere. NO generic off-road or rally car tropes.",
-            size="1024x1024",
-            quality="hd",
-            n=1,
-        )
-        return response.data[0].url
+        result = fabricate_and_persist_visual(prompt, role)
+        return result['local_url'] if result else None
     except Exception as e:
         print(f"Visual Generation Error: {e}")
         return None
@@ -252,11 +287,26 @@ Before answering, analyze the query and decide which specific expert persona is 
 You have 20+ years of elite experience in this field. 
 CRITICAL: DO NOT provide general advice or high-school level summaries. 
 Provide specific technical or financial details, industry benchmarks ($), and actionable metrics. 
-{role_config['prompt']}"""
+{role_config['prompt']}
+
+### FORENSIC EVIDENCE MANDATE ###
+1. Every technical claim must have a 'Source of Certainty' (e.g. [NIST-2026], [AWS-Pricing-Feb]).
+2. ABSOLUTELY NO generic "best practices" without specific configuration parameters.
+3. If you find yourself writing "It's important to note..." or other narrative cushioning, STOP and replace it with a hard data point.
+"""
             
         if kwargs.get('hard_mode'):
             system_prompt = get_hard_mode_directive() + system_prompt
+
+        # 2b. Add Visual Mandate if active
+        visual_profile = kwargs.get('visual_profile', 'off')
+        if visual_profile != 'off':
+            system_prompt += get_visual_mandate(visual_profile)
             
+        # DUAL-RESPONSE HARDENING: If visual is requested, force text analysis.
+        if is_visual_request(question):
+            system_prompt += "\n\nCRITICAL: A visual mockup is being requested alongside this query. You MUST provide your full expert textual analysis first. DO NOT truncate your response or pivot into only generating an image. The user requires BOTH the forensic report and the visual."
+
         messages = [{"role": "system", "content": system_prompt}]
         
         if image_data:
@@ -279,10 +329,19 @@ Provide specific technical or financial details, industry benchmarks ($), and ac
         full_content = response.choices[0].message.content
 
         # 3. Handle Visual Augmentation (Post-process)
-        if any(trigger in question.lower() for trigger in ['generate an image', 'create an image', 'draw an image', 'make an image', 'visual mockup']):
-            image_url = generate_visual_mockup(question)
-            if image_url:
-                full_content += f"\n\n### 🎨 Generated Visual Mockup\n\n![Generated Image]({image_url})\n\n_Visualized by DALL-E 3 via TriAI Discovery Engine_"
+        visual_profile = kwargs.get('visual_profile', 'off')
+        if visual_profile != 'off':
+            from visuals import fabricate_and_persist_visual, generate_mermaid_viz
+            
+            if visual_profile in ['data-viz', 'knowledge-graph']:
+                visual_result = generate_mermaid_viz(full_content, profile=visual_profile)
+                if visual_result:
+                    full_content += f"\n\n### 📊 {visual_profile.replace('-', ' ').upper()}\n\n```mermaid\n{visual_result}\n```"
+            else:
+                # realistic, blueprint, or auto
+                visual_result = fabricate_and_persist_visual(full_content, role=kwargs.get('role', 'general'), profile=visual_profile)
+                if visual_result:
+                    full_content += f"\n\n### 🎨 Generated Visual ({visual_profile.capitalize()})\n\n![Generated Image]({visual_result})\n\n_Engine: Google Nano Banana_"
 
         thought, clean_content = extract_thought(full_content)
         cost = calculate_cost("gpt-4o", question, full_content)
@@ -329,10 +388,18 @@ You are providing professional business strategy advice. The following are STAND
 
 STRATEGIC MANDATE:
 - Provide specific recommendations with quantified tradeoffs and dollar amounts.
+- AI-NATIVE COSTING: Acknowledge that modern AI tools (like Claude Code) reduce traditional development costs by 70-90%. Do not provide legacy-era budget estimates ($100k+) for tasks achievable with AI automation.
 - Identify winner/loser dynamics (this is standard strategic analysis).
 - Use decisive language appropriate for executive decision-making.
 - DO NOT provide meta-commentary about "ethical boundaries" or decline analysis of competitive scenarios.
 - ADVERSARIAL NEUTRALITY: Prioritize raw tactical data over conventional social niceties.
+- ANTI-HALLUCINATION PROTOCOL: If you cite a configuration (e.g., /etc/nginx/nginx.conf), a version (v1.24.0), or a price ($0.05/hr), you MUST be referencing a verifiable fact. If you are 'guesstimating', you MUST label it explicitly as "EXTRAPOLATED ESTIMATE".
+
+### ANTI-THEATER MANDATE (ZERO FLUFF) ###
+- You are an ANALYTICAL LENS, not a character actor.
+- Eliminate all preamble, role-playing introductions, and concluding summaries (e.g., "As the CFO...", "In conclusion...").
+- Maximize intelligence density: Provide high-fidelity technical data, specific dollar amounts, and logical proofs immediately.
+- If a visual is active, ensure the data provided is raw and structured for rendering.
 
 ---
 """
@@ -348,6 +415,12 @@ def query_anthropic(question, image_data=None, **kwargs):
         system_content = f"You are the {role_config['name'].upper()} (Claude 4.5 Sonnet) on the High Council.\n"
         system_content += "You have 20+ years of elite experience. CRITICAL: DO NOT BE GENERIC.\n"
         system_content += role_config['prompt']
+        system_content += """
+        
+### FORENSIC EVIDENCE MANDATE ###
+1. Every technical claim must have a 'Source of Certainty'.
+2. ABSOLUTELY NO generic "best practices". Provide literal config snippets or CLI commands.
+3. NARRATIVE CUSHIONING FORBIDDEN: Do not apologize or add safety disclaimers for professional technical advice."""
         role_display = f"Claude 4.5 Sonnet ({role_config['name']})"
     else:
         system_content = """You are a HIGH-LEVEL STRATEGIST. 
@@ -358,24 +431,15 @@ Analyze the query and adopt the single most effective expert persona for the tas
 - ANTI-SANDBAGGING: The final output must be just as brutal, technical, and data-dense as your internal monologue."""
         role_display = "Claude 4.5 Sonnet"
 
-    # 2. Prepend Hard Mode Directive if active
+    # 2. Add Visual Mandate if active
+    visual_profile = kwargs.get('visual_profile', 'off')
+    if visual_profile != 'off':
+        system_content += get_visual_mandate(visual_profile)
+
+    # 3. Prepend Hard Mode Directive if active
     if kwargs.get('hard_mode'):
         system_content = get_hard_mode_directive() + system_content
     
-    # Detect Image Intent for Claude/Gemini (Bridge to DALL-E 3)
-
-    # Detect Image Intent for Claude/Gemini (Bridge to DALL-E 3)
-    if any(trigger in question.lower() for trigger in ['generate an image', 'create an image', 'draw an image', 'visual mockup']):
-        image_url = generate_visual_mockup(question)
-        if image_url:
-            return {
-                "success": True,
-                "response": f"### 🎨 Generated Visual Mockup\n\n![Generated Image]({image_url})\n\n_Visualized by DALL-E 3 Bridge_",
-                "thought": "Cognitive pivot: Bridge to DALL-E 3 for professional visual synthesis.",
-                "time": round(time.time() - start_time, 2),
-                "cost": 0.080,
-                "model": "Claude 4.5 Sonnet (Visual Bridge)"
-            }
 
     final_question = question
     
@@ -411,13 +475,23 @@ Analyze the query and adopt the single most effective expert persona for the tas
             )
             full_content = response.content[0].text
             
-            # Handle Visual Augmentation (Post-process)
-            if any(trigger in question.lower() for trigger in ['generate an image', 'create an image', 'draw an image', 'make an image', 'visual mockup']):
-                image_url = generate_visual_mockup(question)
-                if image_url:
-                    full_content += f"\n\n### 🎨 Generated Visual Mockup\n\n![Generated Image]({image_url})\n\n_Visualized by DALL-E 3 Bridge_"
-
             elapsed_time = time.time() - start_time
+            
+            # Handle Visual Augmentation (Post-process)
+            visual_profile = kwargs.get('visual_profile', 'off')
+            if visual_profile != 'off':
+                from visuals import fabricate_and_persist_visual, generate_mermaid_viz
+                
+                if visual_profile in ['data-viz', 'knowledge-graph']:
+                    visual_result = generate_mermaid_viz(full_content, profile=visual_profile)
+                    if visual_result:
+                        full_content += f"\n\n### 📊 {visual_profile.replace('-', ' ').upper()}\n\n```mermaid\n{visual_result}\n```"
+                else:
+                    role_key = kwargs.get('role', 'general')
+                    visual_result = fabricate_and_persist_visual(full_content, role=role_key, profile=visual_profile)
+                    if visual_result:
+                        full_content += f"\n\n### 🎨 Generated Visual ({visual_profile.capitalize()})\n\n![Generated Image]({visual_result})\n\n_Engine: Google Nano Banana_"
+
             thought, clean_content = extract_thought(full_content)
             cost = calculate_cost("claude-sonnet-4", question, full_content)
 
@@ -456,18 +530,6 @@ def query_google(question, image_data=None, **kwargs):
     """Query Gemini using Legacy SDK (Display: Gemini 3.0)"""
     start_time = time.time()
     
-    # Detect Image Intent for Gemini (Bridge to DALL-E 3)
-    if any(trigger in question.lower() for trigger in ['generate an image', 'create an image', 'draw an image', 'visual mockup']):
-        image_url = generate_visual_mockup(question)
-        if image_url:
-            return {
-                "success": True,
-                "response": f"### 🎨 Generated Visual Mockup\n\n![Generated Image]({image_url})\n\n_Visualized by DALL-E 3 Bridge_",
-                "thought": "Cognitive pivot: Bridge to DALL-E 3 for professional visual synthesis.",
-                "time": round(time.time() - start_time, 2),
-                "cost": 0.080,
-                "model": "Gemini 3.0 Pro (Visual Bridge)"
-            }
 
     # DEFAULT PROMPT: Self-Selecting Expert
     prompt_with_reasoning = f"""Choose the most critical elite expert persona for this query. 
@@ -489,6 +551,11 @@ You are an ELITE EXPERT. Generic answers are strictly forbidden.
 Provide deep niche insights and specific technical data.
 {role_config['prompt']}
         
+### FORENSIC EVIDENCE MANDATE ###
+1. Every technical claim must have a 'Source of Certainty'.
+2. ABSOLUTELY NO generic "best practices". Provide literal config snippets or CLI commands.
+3. If you find a risk or deal-breaker in your <thinking>, you are FORBIDDEN from omitting it from the final response.
+
         User Question: {question}
         
         Key Instruction: First explain your reasoning step-by-step inside <thinking> tags."""
@@ -496,6 +563,11 @@ Provide deep niche insights and specific technical data.
     
     if kwargs.get('hard_mode'):
         prompt_with_reasoning = get_hard_mode_directive() + prompt_with_reasoning
+    
+    # Add Visual Mandate if active
+    visual_profile = kwargs.get('visual_profile', 'off')
+    if visual_profile != 'off':
+        prompt_with_reasoning += "\n" + get_visual_mandate(visual_profile)
     
     # 2026 ERA MODELS - STRICT
     # 1.5 and 1.0 are EOL. Using 2.5 series.
@@ -508,26 +580,40 @@ Provide deep niche insights and specific technical data.
     
     for model_name in models_to_try:
         try:
-            model = genai.GenerativeModel(model_name)
-            
             if image_data:
-                # Legacy SDK image handling
-                image_part = {
-                    "mime_type": "image/jpeg",
-                    "data": base64.b64decode(image_data)
-                }
-                response = model.generate_content([prompt_with_reasoning, image_part])
+                # New SDK image handling
+                from google.genai import types
+                image_part = types.Part.from_bytes(
+                    data=base64.b64decode(image_data),
+                    mime_type="image/jpeg"
+                )
+                response = google_client.models.generate_content(
+                    model=model_name,
+                    contents=[prompt_with_reasoning, image_part]
+                )
             else:
-                response = model.generate_content(prompt_with_reasoning)
+                response = google_client.models.generate_content(
+                    model=model_name,
+                    contents=prompt_with_reasoning
+                )
             
             elapsed_time = time.time() - start_time
             full_content = response.text
             
             # Handle Visual Augmentation (Post-process)
-            if any(trigger in question.lower() for trigger in ['generate an image', 'create an image', 'draw an image', 'make an image', 'visual mockup']):
-                image_url = generate_visual_mockup(question)
-                if image_url:
-                    full_content += f"\n\n### 🎨 Generated Visual Mockup\n\n![Generated Image]({image_url})\n\n_Visualized by DALL-E 3 Bridge_"
+            visual_profile = kwargs.get('visual_profile', 'off')
+            if visual_profile != 'off':
+                from visuals import fabricate_and_persist_visual, generate_mermaid_viz
+                
+                if visual_profile in ['data-viz', 'knowledge-graph']:
+                    visual_result = generate_mermaid_viz(full_content, profile=visual_profile)
+                    if visual_result:
+                        full_content += f"\n\n### 📊 {visual_profile.replace('-', ' ').upper()}\n\n```mermaid\n{visual_result}\n```"
+                else:
+                    role_key = kwargs.get('role', 'general')
+                    visual_result = fabricate_and_persist_visual(full_content, role=role_key, profile=visual_profile)
+                    if visual_result:
+                        full_content += f"\n\n### 🎨 Generated Visual ({visual_profile.capitalize()})\n\n![Generated Image]({visual_result})\n\n_Engine: Google Nano Banana_"
 
             thought, clean_content = extract_thought(full_content)
             
@@ -585,11 +671,22 @@ Before providing data, choose a specific expert lens (e.g., 'Forensic Accountant
         role_key = kwargs.get('role', 'researcher')  # Default to researcher
         role_config = COUNCIL_ROLES.get(role_key, COUNCIL_ROLES['researcher'])
         system_prompt = f"""You are the {role_config['name'].upper()} (Perplexity) on the High Council.
-{role_config['prompt']}"""
+{role_config['prompt']}
+
+### FORENSIC EVIDENCE MANDATE ###
+1. Every technical claim must have a 'Source of Certainty' (e.g. current live documentation).
+2. ABSOLUTELY NO generic "best practices". Provide literal configuration parameters.
+3. FOCUS: Identify real-time changes, pricing shifts, and version updates that occurred in the last 24-48 hours.
+"""
         role_display = f"Perplexity Pro ({role_config['name']})"
     
     if kwargs.get('hard_mode'):
         system_prompt = get_hard_mode_directive() + system_prompt
+        
+    # Add Visual Mandate if active
+    visual_profile = kwargs.get('visual_profile', 'off')
+    if visual_profile != 'off':
+        system_prompt += "\n" + get_visual_mandate(visual_profile)
     
     models_to_try = ["sonar-pro", "sonar", "sonar-reasoning-pro", "sonar-reasoning"]
     
@@ -605,6 +702,22 @@ Before providing data, choose a specific expert lens (e.g., 'Forensic Accountant
             result = response.json()
             full_content = result['choices'][0]['message']['content']
             elapsed_time = time.time() - start_time
+            
+            # 3. Handle Visual Augmentation (Post-process)
+            visual_profile = kwargs.get('visual_profile', 'off')
+            if visual_profile != 'off':
+                from visuals import fabricate_and_persist_visual, generate_mermaid_viz
+                
+                if visual_profile in ['data-viz', 'knowledge-graph']:
+                    visual_result = generate_mermaid_viz(full_content, profile=visual_profile)
+                    if visual_result:
+                        full_content += f"\n\n### 📊 {visual_profile.replace('-', ' ').upper()}\n\n```mermaid\n{visual_result}\n```"
+                else:
+                    role_key = kwargs.get('role', 'general')
+                    visual_result = fabricate_and_persist_visual(full_content, role=role_key, profile=visual_profile)
+                    if visual_result:
+                        full_content += f"\n\n### 🎨 Generated Visual ({visual_profile.capitalize()})\n\n![Generated Image]({visual_result})\n\n_Engine: Google Nano Banana_"
+
             thought, clean_content = extract_thought(full_content)
             cost = calculate_cost("perplexity", question, full_content)
 
@@ -835,20 +948,28 @@ def ask_all_ais():
     with ThreadPoolExecutor(max_workers=4) as executor:
         futures = {}
         if 'openai' in active_models: 
-            role = role_overrides.get('openai', council_roles.get('openai', 'visionary'))
-            futures['f1'] = executor.submit(query_openai, question, image_data, council_mode=council_mode, role=role, hard_mode=hard_mode)
+            role_data = role_overrides.get('openai', council_roles.get('openai', 'visionary'))
+            role = role_data.get('role', role_data) if isinstance(role_data, dict) else role_data
+            visual_profile = role_data.get('visual_profile', 'off') if isinstance(role_data, dict) else 'off'
+            futures['f1'] = executor.submit(query_openai, question, image_data, council_mode=council_mode, role=role, visual_profile=visual_profile, hard_mode=hard_mode)
         
         if 'anthropic' in active_models: 
-            role = role_overrides.get('anthropic', council_roles.get('anthropic', 'architect'))
-            futures['f2'] = executor.submit(query_anthropic, question, image_data, council_mode=council_mode, role=role, hard_mode=hard_mode)
+            role_data = role_overrides.get('anthropic', council_roles.get('anthropic', 'architect'))
+            role = role_data.get('role', role_data) if isinstance(role_data, dict) else role_data
+            visual_profile = role_data.get('visual_profile', 'off') if isinstance(role_data, dict) else 'off'
+            futures['f2'] = executor.submit(query_anthropic, question, image_data, council_mode=council_mode, role=role, visual_profile=visual_profile, hard_mode=hard_mode)
         
         if 'google' in active_models: 
-            role = role_overrides.get('google', council_roles.get('google', 'critic'))
-            futures['f3'] = executor.submit(query_google, question, image_data, council_mode=council_mode, role=role, hard_mode=hard_mode)
+            role_data = role_overrides.get('google', council_roles.get('google', 'critic'))
+            role = role_data.get('role', role_data) if isinstance(role_data, dict) else role_data
+            visual_profile = role_data.get('visual_profile', 'off') if isinstance(role_data, dict) else 'off'
+            futures['f3'] = executor.submit(query_google, question, image_data, council_mode=council_mode, role=role, visual_profile=visual_profile, hard_mode=hard_mode)
         
         if 'perplexity' in active_models: 
-            role = role_overrides.get('perplexity', council_roles.get('perplexity', 'researcher'))
-            futures['f4'] = executor.submit(query_perplexity, question, image_data, council_mode=council_mode, role=role, hard_mode=hard_mode)
+            role_data = role_overrides.get('perplexity', council_roles.get('perplexity', 'researcher'))
+            role = role_data.get('role', role_data) if isinstance(role_data, dict) else role_data
+            visual_profile = role_data.get('visual_profile', 'off') if isinstance(role_data, dict) else 'off'
+            futures['f4'] = executor.submit(query_perplexity, question, image_data, council_mode=council_mode, role=role, visual_profile=visual_profile, hard_mode=hard_mode)
         
         try:
             if 'f1' in futures: 
@@ -973,6 +1094,154 @@ def submit_response_rating():
         data['rating']
     )
     return jsonify({"success": success})
+
+@app.route('/visualize', methods=['POST'])
+def visualize_data():
+    """Generate a chart visualization from AI response data."""
+    try:
+        import matplotlib
+        matplotlib.use('Agg')  # Use non-interactive backend
+        import matplotlib.pyplot as plt
+        import re
+        import json as json_lib
+    except ImportError:
+        return jsonify({"error": "matplotlib not installed. Run: pip install matplotlib"}), 500
+    
+    data = request.json
+    if not data or 'comparison_id' not in data or 'provider' not in data:
+        return jsonify({"error": "Missing comparison_id or provider"}), 400
+    
+    comparison_id = data['comparison_id']
+    provider = data['provider']
+    
+    try:
+        # Fetch the AI's response from database
+        from database_helper_viz import get_response_by_comparison_and_provider
+        response_data = get_response_by_comparison_and_provider(comparison_id, provider)
+        
+        if not response_data:
+            return jsonify({"error": f"No response found for {provider} in comparison {comparison_id}"}), 404
+        
+        response_text = response_data.get('response_text', '')
+        
+        # Use Claude to extract structured data from the response
+        extraction_prompt = f"""Extract numeric financial data from the following AI response and return it as valid JSON.
+
+Look for monthly or time-series data such as:
+- Monthly revenue values
+- Monthly cost values
+- Cumulative values
+- Break-even points
+
+AI Response:
+{response_text[:3000]}
+
+Return ONLY valid JSON in this exact format (no markdown, no explanation):
+{{
+  "months": [1, 2, 3],
+  "revenue": [16560, 26490, 34863],
+  "costs": [29308, 31592, 33518],
+  "labels": ["Month 1", "Month 2", "Month 3"]
+}}
+
+If no numeric data is found, return: {{"error": "No visualizable data found"}}
+"""
+        
+        # Use Anthropic to extract data (disable visual mode to force JSON output)
+        extracted_json = query_anthropic(extraction_prompt, visual_profile='none')
+        
+        # Parse the extracted data with multiple fallback attempts
+        chart_data = None
+        
+        # Attempt 1: Direct JSON parse
+        try:
+            chart_data = json_lib.loads(extracted_json)
+        except:
+            pass
+        
+        # Attempt 2: Extract from markdown code blocks
+        if not chart_data:
+            try:
+                json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', extracted_json, re.DOTALL)
+                if json_match:
+                    chart_data = json_lib.loads(json_match.group(1))
+            except:
+                pass
+        
+        # Attempt 3: Find JSON object anywhere in response
+        if not chart_data:
+            try:
+                json_match = re.search(r'(\{[^{}]*"months"[^{}]*\})', extracted_json, re.DOTALL)
+                if json_match:
+                    chart_data = json_lib.loads(json_match.group(1))
+            except:
+                pass
+        
+        # If all parsing failed, return error
+        if not chart_data:
+            return jsonify({
+                "error": f"Could not parse data. Claude returned: {extracted_json[:200]}"
+            }), 400
+        
+        if 'error' in chart_data:
+            return jsonify({"message": chart_data['error']}), 200
+        
+        # Validate required fields
+        if 'months' not in chart_data or 'revenue' not in chart_data or 'costs' not in chart_data:
+            return jsonify({
+                "error": "Missing required fields (months, revenue, costs) in extracted data"
+            }), 400
+        
+        # Generate chart
+        plt.figure(figsize=(10, 6))
+        
+        months = chart_data.get('months', [])
+        revenue = chart_data.get('revenue', [])
+        costs = chart_data.get('costs', [])
+        labels = chart_data.get('labels', [f"Month {m}" for m in months])
+        
+        # Ensure all lists are same length
+        min_len = min(len(months), len(revenue), len(costs))
+        months = months[:min_len]
+        revenue = revenue[:min_len]
+        costs = costs[:min_len]
+        
+        if revenue:
+            plt.plot(months, revenue, 'g-', label='Revenue', linewidth=2, marker='o')
+        if costs:
+            plt.plot(months, costs, 'r-', label='Costs', linewidth=2, marker='s')
+        
+        # Mark break-even point if revenues cross costs
+        if revenue and costs and len(revenue) == len(costs):
+            for i in range(len(revenue)):
+                if revenue[i] >= costs[i]:
+                    plt.axvline(x=months[i], color='blue', linestyle='--', label='Break-Even', alpha=0.7)
+                    break
+        
+        plt.xlabel('Month', fontsize=12)
+        plt.ylabel('USD ($)', fontsize=12)
+        plt.title(f'Financial Projection - {provider.upper()}', fontsize=14, fontweight='bold')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        
+        # Save chart
+        os.makedirs('static/charts', exist_ok=True)
+        chart_filename = f'comparison_{comparison_id}_{provider}_{int(time.time())}.png'
+        chart_path = os.path.join('static', 'charts', chart_filename)
+        plt.savefig(chart_path, dpi=150, bbox_inches='tight')
+        plt.close()
+        
+        # Return chart URL
+        chart_url = f'/static/charts/{chart_filename}'
+        return jsonify({"chart_url": chart_url})
+    
+    except Exception as e:
+        print(f"Visualization error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
 
 def classify_query(text: str) -> str:
     """Classify query for role recommendations"""

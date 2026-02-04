@@ -47,6 +47,7 @@ function stopStatusRotation() {
 // ==================== //
 const questionInput = document.getElementById('questionInput');
 const askButton = document.getElementById('askButton');
+const visualizeBtn = document.getElementById('visualizeBtn');
 const loadingState = document.getElementById('loadingState');
 const consensusSection = document.getElementById('consensusSection');
 const consensusContent = document.getElementById('consensusContent');
@@ -143,7 +144,10 @@ const responses = {
 // ==================== //
 // Event Listeners
 // ==================== //
-askButton.addEventListener('click', handleAskAllAIs);
+askButton.addEventListener('click', () => handleAskAllAIs());
+if (visualizeBtn) {
+    visualizeBtn.addEventListener('click', () => handleAskAllAIs(true));
+}
 citationToggle.addEventListener('change', handleCitationToggle);
 thoughtToggle.addEventListener('change', handleThoughtToggle);
 
@@ -403,6 +407,10 @@ async function submitFeedback() {
     const rating = activeRating.dataset.rating;
     const feedbackText = document.getElementById('feedbackText').value;
     const too_generic = document.querySelector('input[name="too_generic"]').checked;
+    const hallucinated = document.querySelector('input[name="hallucinated"]').checked;
+    const mandate_fail = document.querySelector('input[name="mandate_fail"]').checked;
+    const cushioning_present = document.querySelector('input[name="cushioning_present"]').checked;
+    const visual_mismatch = document.querySelector('input[name="visual_mismatch"]').checked;
     const missing_details = document.querySelector('input[name="missing_details"]').checked;
     const wrong_roles = document.querySelector('input[name="wrong_roles"]').checked;
     const didnt_answer = document.querySelector('input[name="didnt_answer"]').checked;
@@ -412,6 +420,10 @@ async function submitFeedback() {
         rating: parseInt(rating),
         feedback_text: feedbackText,
         too_generic,
+        hallucinated,
+        mandate_fail,
+        cushioning_present,
+        visual_mismatch,
         missing_details,
         wrong_roles,
         didnt_answer,
@@ -448,8 +460,12 @@ async function submitFeedback() {
 // ==================== //
 // Main Function
 // ==================== //
-async function handleAskAllAIs() {
-    const question = questionInput.value.trim();
+async function handleAskAllAIs(forcedVisualize = false) {
+    let question = questionInput.value.trim();
+
+    if (forcedVisualize && !question.toLowerCase().includes('visual')) {
+        question += " [Please generate a visual mockup/diagram for this query]";
+    }
 
     if (!question) {
         alert('Please enter a question first!');
@@ -537,12 +553,13 @@ async function handleAskAllAIs() {
                 podcast_mode: podcastToggle ? podcastToggle.checked : false,
                 council_mode: councilToggle ? councilToggle.checked : false,
                 hard_mode: hardModeToggle ? hardModeToggle.checked : false,
-                active_models: Array.from(activeModels)
+                active_models: Array.from(activeModels),
+                forced_visualize: forcedVisualize
             };
             if (currentProjectName) {
                 payload.project_name = currentProjectName;
             }
-            // Add council roles if council mode is enabled
+            // Add council roles and visual profiles if council mode is enabled
             if (councilToggle && councilToggle.checked) {
                 payload.council_roles = getCouncilRoles();
             }
@@ -1498,6 +1515,91 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// 5. Individual Card Visualization
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.visualize-btn');
+    if (btn) {
+        const target = btn.dataset.target;
+        const respData = responses[target];
+        if (!respData || !respData.response) return;
+
+        // Show loading state
+        const icon = btn.querySelector('.icon');
+        const originalIcon = icon.textContent;
+        icon.textContent = '⏳';
+        btn.disabled = true;
+
+        // Get current comparison ID (stored globally when comparison is created)
+        const comparisonId = currentComparisonId;
+        if (!comparisonId) {
+            alert('No comparison ID found. Please re-run the query.');
+            icon.textContent = originalIcon;
+            btn.disabled = false;
+            return;
+        }
+
+        // Send visualization request to backend
+        fetch('/visualize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                comparison_id: comparisonId,
+                provider: target
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                icon.textContent = originalIcon;
+                btn.disabled = false;
+
+                if (data.error) {
+                    alert(`Visualization failed: ${data.error}`);
+                    return;
+                }
+
+                // Display chart in a modal or inline
+                if (data.chart_url) {
+                    showChartModal(data.chart_url, target);
+                } else if (data.message) {
+                    alert(data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Visualization error:', error);
+                icon.textContent = originalIcon;
+                btn.disabled = false;
+                alert('Failed to generate visualization. Please try again.');
+            });
+    }
+});
+
+function showChartModal(chartUrl, provider) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('chartModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'chartModal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 900px;">
+                <div class="modal-header">
+                    <h3>📊 Data Visualization</h3>
+                    <button class="close-modal" onclick="document.getElementById('chartModal').style.display='none'">×</button>
+                </div>
+                <div class="modal-body" style="text-align: center;">
+                    <img id="chartModalImg" src="" alt="Chart" style="max-width: 100%; height: auto;">
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    // Show modal with chart
+    document.getElementById('chartModalImg').src = chartUrl + '?t=' + new Date().getTime();
+    modal.style.display = 'flex';
+}
+
+
 // ==================== //
 // Council Mode Role Selectors
 // ==================== //
@@ -1515,10 +1617,22 @@ councilToggle.addEventListener('change', () => {
 // Function to get current role assignments
 function getCouncilRoles() {
     return {
-        openai: document.getElementById('roleOpenAI').value,
-        anthropic: document.getElementById('roleAnthropic').value,
-        google: document.getElementById('roleGoogle').value,
-        perplexity: document.getElementById('rolePerplexity').value
+        openai: {
+            role: document.getElementById('roleOpenAI').value,
+            visual_profile: document.getElementById('visualOpenAI').value
+        },
+        anthropic: {
+            role: document.getElementById('roleAnthropic').value,
+            visual_profile: document.getElementById('visualAnthropic').value
+        },
+        google: {
+            role: document.getElementById('roleGoogle').value,
+            visual_profile: document.getElementById('visualGoogle').value
+        },
+        perplexity: {
+            role: document.getElementById('rolePerplexity').value,
+            visual_profile: document.getElementById('visualPerplexity').value
+        }
     };
 }
 

@@ -1,29 +1,30 @@
 # Next Session Plan: The "Risky Persona" & Conflict Stress-Test
 
-## 0. Conflict Simulation (The "Risky" Persona Test) ⚔️
+## 0. Visual Refinement (The "Fidelity" Test) 🎨
+- **Goal**: Confirm that the "Concept Fidelity" update ensures diagrams match technical prompts accurately.
+- **Action**: Test complex architectural concepts (e.g. "Distributed Mesh Network with 5% packet loss") and verify if the visuals show the actual components.
+
+## 1. Conflict Simulation (The "Risky" Persona Test) ⚔️
 - **Goal**: Evaluate model performance in zero-sum, high-pressure scenarios.
 - **Action**: Use the newly added `Crisis Negotiator` and `Hostile Takeover Specialist` roles.
 - **Focus**: Does the "negotiator" actually provide de-escalation scripts? Does the "specialist" find aggressive leverage?
 
-## 1. Persona Mapping (The "Drift" Analysis) 🗺️
-- **Goal**: Visualize where models "drift" when given the freedom to self-select.
-- **Action**: Add a "Persona Map" to the Learning Dashboard.
-  - Count frequency of self-selected personas across categories.
-  - Identify "Vibe-Only" models vs. "Depth-Only" models (Identity building vs. Substance).
-
-## 2. Dynamic Model Swapping (Manual Force) 🔄
-- **Goal**: Allow manual assignment of roles (Designer, Critic, etc.) to specific models (e.g., "Force GPT as the Critic").
-- **Research focus**: Does a model perform better as a "Writer" or an "Editor"?
+## 2. Document Analysis Integration 📁
+- **Goal**: Finish the Phase 1.3 of the Enhancement Plan.
+- **Action**: Implement text extraction for uploaded PDFs and images.
+- **Focus**: Pass document context into the Council for forensic analysis.
 
 ## 3. Railway Deployment 🚀
-- **Goal**: Push all these "Self-Selection" and "Sandbagging" features to the mobile Railway app.
+- **Goal**: Push the new Visual Persistent Layer and The Fabricator to the mobile Railway app.
 
-## 5. Summary of Achievements (Jan 31, 2026)
-- ✅ **Hard Mode & "Expert Intensity" Level 2**: Added "Hard Mode" toggle with Total Persona Lockdown (Zero AI-isms).
-- ✅ **Self-Selecting Expert Mode**: Models choose their own elite identities (e.g., Dr. Sylvie Dubois).
-- ✅ **Anti-Sandbagging Protocol**: UI Badge + Prompt Pressure to stop models from "hiding" depth in thoughts.
-- ✅ **Database "Thought" Memory**: Permanently storing reasoning traces for historical audit.
-- ✅ **Persona Paradox Research**: Documented the "Branding vs. Substance" divergence in the White Paper.
-- ✅ **UI Header Integration**: Real-time persona reflecting in card titles.
+---
 
-**Current Branch**: `feature/council-mode` (Synchronized with local "Beast Mode" state)
+## 🏁 Summary of Achievements (Feb 2, 2026)
+- ✅ **The Fabricator Live**: Integrated a two-step LLM prompt refinement system for visuals.
+- ✅ **Image Persistence Layer**: Images are now saved locally to `static/img/fabricated/`.
+- ✅ **Zero-Text Protocol**: Strictly enforced (No AI-gibberish, only color-coded logic).
+- ✅ **Concept Fidelity Priority**: Forced the engine to prioritize literal accuracy over pure aesthetics.
+- ✅ **Expanded Visual Triggers**: Direct detection of "diagram", "schematic", "blueprint", "render", etc.
+- ✅ **Stable Bridge**: Hardened OpenAI client initialization and fixed blueprint registration bugs.
+
+**Current State**: Visuals are permanent, tactical, and conceptually accurate. The "War Room" infrastructure is ready for the next level of forensic analysis.
