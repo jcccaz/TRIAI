@@ -1099,6 +1099,10 @@ def submit_response_rating():
 def visualize_data():
     """Generate a chart visualization from AI response data."""
     try:
+        import os
+        # Fix for Railway/Serverless: Set writable cache dir for matplotlib
+        os.environ['MPLCONFIGDIR'] = '/tmp'
+        
         import matplotlib
         matplotlib.use('Agg')  # Use non-interactive backend
         import matplotlib.pyplot as plt
