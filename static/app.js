@@ -1043,22 +1043,32 @@ function createSelectionTooltip() {
     div.id = 'selectionTooltip';
     div.className = 'selection-tooltip hidden';
     div.innerHTML = `
-        <button class="tooltip-btn" id="btnVizSelect">
-            <span>🎨</span> Visualize
+        <button class="tooltip-btn" id="btnVizArt" title="Realistic Render">
+            <span>🖼️</span>
         </button>
-        <button class="tooltip-btn" id="btnInterrogateSelect">
-            <span>🔍</span> Interrogate
+        <button class="tooltip-btn" id="btnVizBlue" title="Technical Blueprint">
+            <span>📐</span>
+        </button>
+        <button class="tooltip-btn" id="btnVizChart" title="Data Chart">
+            <span>📊</span>
+        </button>
+        <button class="tooltip-btn" id="btnInterrogateSelect" title="Forensic Interrogation">
+            <span>🔍 Interrogate</span>
         </button>
     `;
     document.body.appendChild(div);
 
-    // Event Listeners
-    document.getElementById('btnVizSelect').addEventListener('click', (e) => {
-        e.stopPropagation();
-        triggerContextVisual(div.dataset.selectedText, div.dataset.provider);
+    // Context Helpers
+    const runViz = (profile) => {
+        triggerContextVisual(div.dataset.selectedText, div.dataset.provider, profile);
         div.classList.add('hidden');
         window.getSelection().removeAllRanges();
-    });
+    };
+
+    // Event Listeners
+    document.getElementById('btnVizArt').addEventListener('click', (e) => { e.stopPropagation(); runViz('realistic'); });
+    document.getElementById('btnVizBlue').addEventListener('click', (e) => { e.stopPropagation(); runViz('blueprint'); });
+    document.getElementById('btnVizChart').addEventListener('click', (e) => { e.stopPropagation(); runViz('data-viz'); });
 
     document.getElementById('btnInterrogateSelect').addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1068,7 +1078,7 @@ function createSelectionTooltip() {
     });
 }
 
-async function triggerContextVisual(text, provider) {
+async function triggerContextVisual(text, provider, profile = 'realistic') {
     if (!text || !provider) return;
 
     // Reuse existing visual logic but with explicit text
@@ -1083,7 +1093,8 @@ async function triggerContextVisual(text, provider) {
             body: JSON.stringify({
                 comparison_id: currentComparisonId,
                 provider: provider,
-                selected_text: text // The Magic Override
+                selected_text: text, // The Magic Override
+                visual_profile: profile
             })
         });
 

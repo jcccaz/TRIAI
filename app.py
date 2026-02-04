@@ -1131,7 +1131,15 @@ def visualize_data():
         # Contextual Selection Override
         selected_text = data.get('selected_text')
         target_text = selected_text if selected_text and len(selected_text) > 10 else response_text
+        visual_profile = data.get('visual_profile', 'realistic')
         
+        # If user explicitly requested a Mermaid chart type, jump straight to Mermaid generation
+        if visual_profile in ['data-viz', 'knowledge-graph']:
+            from visuals import generate_mermaid_viz
+            mermaid_syntax = generate_mermaid_viz(target_text[:4000], profile=visual_profile)
+            if mermaid_syntax:
+                return jsonify({"mermaid_syntax": mermaid_syntax})
+
         # Use Claude to extract structured data from the target text
         extraction_prompt = f"""Extract numeric financial data from the following text and return it as valid JSON.
 
@@ -1187,11 +1195,11 @@ If no numeric data is found, return: {{"error": "No visualizable data found"}}
         
         # If all parsing failed, try to generate a conceptual image instead
         if not chart_data:
-            print("Chart extraction failed, falling back to Image Construction...")
+            print(f"Chart extraction failed, falling back to Image Construction ({visual_profile})...")
             try:
                 # Use the target text (selection or full) as the concept
                 concept = target_text[:500]
-                image_url = fabricate_and_persist_visual(concept, role='analyst', profile='realistic')
+                image_url = fabricate_and_persist_visual(concept, role='analyst', profile=visual_profile)
                 
                 if image_url:
                     return jsonify({"chart_url": image_url})
