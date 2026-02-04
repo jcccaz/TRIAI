@@ -6,6 +6,7 @@ from pathlib import Path
 from flask import Blueprint, request, jsonify
 from openai import OpenAI
 from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 # Re-load for standalone resilience
@@ -136,14 +137,21 @@ def fabricate_and_persist_visual(concept, role='general', profile='realistic'):
         # 2. THE ENGINE: Google Nano Banana (Imagen 3)
         logger.info(f"Executing fabrication with prompt: {final_prompt[:100]}...")
         
-        response = openai_client.images.generate(
-            model="dall-e-3",
+        # Use Google GenAI Client (configured in get_google_genai)
+        google_client = get_google_genai()
+        if not google_client:
+             raise ValueError("Google GenAI client not configured")
+
+        # Call Imagen 3
+        # model='imagen-3.0-generate-001' is the production checkpoint
+        response = google_client.models.generate_images(
+            model='imagen-3.0-generate-001',
             prompt=final_prompt,
-            size="1024x1024",
-            quality="hd",
-            n=1
+            config=types.GenerateImageConfig(
+                number_of_images=1,
+                aspect_ratio="1:1"
+            )
         )
-        external_url = response.data[0].url
         
         # 3. PERSISTENCE
         save_dir = Path("static/img/fabricated")
@@ -151,11 +159,15 @@ def fabricate_and_persist_visual(concept, role='general', profile='realistic'):
         filename = f"nano_{uuid.uuid4().hex[:12]}.png"
         local_path = save_dir / filename
         
-        img_data = requests.get(external_url).content
-        local_path.write_bytes(img_data)
-        
-        logger.info(f"Successfully fabricated and persisted image: {filename}")
-        return f"/static/img/fabricated/{filename}"
+        # Save output
+        if response.generated_images:
+            image_bytes = response.generated_images[0].image.image_bytes
+            local_path.write_bytes(image_bytes)
+            logger.info(f"Successfully fabricated and persisted image (Imagen 3): {filename}")
+            return f"/static/img/fabricated/{filename}"
+        else:
+            logger.error("Imagen 3 returned no images.")
+            return None
 
     except Exception as e:
         logger.error(f"Fabrication error: {e}")
