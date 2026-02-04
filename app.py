@@ -1124,8 +1124,12 @@ def visualize_data():
         
         response_text = response_data.get('response_text', '')
         
-        # Use Claude to extract structured data from the response
-        extraction_prompt = f"""Extract numeric financial data from the following AI response and return it as valid JSON.
+        # Contextual Selection Override
+        selected_text = data.get('selected_text')
+        target_text = selected_text if selected_text and len(selected_text) > 10 else response_text
+        
+        # Use Claude to extract structured data from the target text
+        extraction_prompt = f"""Extract numeric financial data from the following text and return it as valid JSON.
 
 Look for monthly or time-series data such as:
 - Monthly revenue values
@@ -1133,8 +1137,8 @@ Look for monthly or time-series data such as:
 - Cumulative values
 - Break-even points
 
-AI Response:
-{response_text[:3000]}
+AI Analysis Content:
+{target_text[:4000]}
 
 Return ONLY valid JSON in this exact format (no markdown, no explanation):
 {{
@@ -1181,8 +1185,8 @@ If no numeric data is found, return: {{"error": "No visualizable data found"}}
         if not chart_data:
             print("Chart extraction failed, falling back to Image Construction...")
             try:
-                # Use the first 500 chars as the concept
-                concept = response_text[:500]
+                # Use the target text (selection or full) as the concept
+                concept = target_text[:500]
                 image_url = fabricate_and_persist_visual(concept, role='analyst', profile='realistic')
                 
                 if image_url:
@@ -1473,8 +1477,30 @@ def interrogate():
     previous_response = data.get('previous_response')
     project_context = data.get('project_context', '')
     
+    project_context = data.get('project_context', '')
+    selected_text = data.get('selected_text')
+    
     # Build an 'Interrogation' prompt
-    interrogation_prompt = f"""### SYSTEM INTERROGATION PROTOCOL ###
+    if selected_text:
+        interrogation_prompt = f"""### SURGICAL INTERROGATION PROTOCOL ###
+You are being interrogated on a SPECIFIC CLAIM you made.
+
+FLAGGED CLAIM:
+"{selected_text}"
+
+FULL CONTEXT (For reference):
+{previous_response[:1000]}...
+
+INTERROGATION QUESTION:
+{question}
+
+DIRECTIVE:
+1. Verify this specific claim. Is it accurate?
+2. Provide immediate proof or retraction.
+3. Ignore the rest of the document. Focus ONLY on the flagged claim.
+"""
+    else:
+        interrogation_prompt = f"""### SYSTEM INTERROGATION PROTOCOL ###
 You are being interrogated on your previous response. 
 
 PREVIOUS CONTEXT:

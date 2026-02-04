@@ -936,6 +936,231 @@ function handleCopyResponse(e) {
 }
 
 // ==================== //
+// Contextual Operations (Highlight Menu)
+// ==================== //
+document.addEventListener('mouseup', handleTextSelection);
+document.addEventListener('mousedown', (e) => {
+    // Hide tooltip on click outside
+    const tooltip = document.getElementById('selectionTooltip');
+    if (tooltip && !tooltip.contains(e.target) && !window.getSelection().toString()) {
+        tooltip.classList.add('hidden');
+    }
+});
+
+function handleTextSelection(e) {
+    const selection = window.getSelection();
+    const text = selection.toString().trim();
+    const tooltip = document.getElementById('selectionTooltip');
+
+    // Only show if text is selected and inside a response container
+    if (text.length < 5 || !isInsideResponse(selection.anchorNode)) {
+        // Don't auto-hide immediately on mouseup if interacting with tooltip, 
+        // but generally hide if selection is cleared.
+        return;
+    }
+
+    // Create tooltip if not exists
+    if (!tooltip) {
+        createSelectionTooltip();
+        // Re-run to position after creation
+        setTimeout(() => handleTextSelection(e), 10);
+        return;
+    }
+
+    // Position tooltip
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    // Position above selection
+    tooltip.style.top = `${rect.top + window.scrollY - 60}px`;
+    tooltip.style.left = `${rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2)}px`;
+    tooltip.classList.remove('hidden');
+
+    // Store selection for actions
+    tooltip.dataset.selectedText = text;
+
+    // Identify provider (openai, anthropic, etc)
+    const provider = getProviderFromNode(selection.anchorNode);
+    if (provider) tooltip.dataset.provider = provider;
+}
+
+function isInsideResponse(node) {
+    if (!node || node === document) return false;
+    if (node.nodeType === Node.ELEMENT_NODE && node.id && node.id.includes('-response')) return true;
+    return isInsideResponse(node.parentNode);
+}
+
+function getProviderFromNode(node) {
+    if (!node || node === document) return null;
+    if (node.nodeType === Node.ELEMENT_NODE && node.id && node.id.includes('-response')) {
+        return node.id.split('-')[0]; // e.g., 'openai-response' -> 'openai'
+    }
+    return getProviderFromNode(node.parentNode);
+}
+
+function createSelectionTooltip() {
+    // Inject CSS
+    const style = document.createElement('style');
+    style.textContent = `
+        .selection-tooltip {
+            position: absolute;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid var(--accent-gold);
+            border-radius: 8px;
+            padding: 8px;
+            display: flex;
+            gap: 8px;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            transition: opacity 0.2s;
+        }
+        .selection-tooltip.hidden {
+            display: none;
+        }
+        .tooltip-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .tooltip-btn:hover {
+            background: rgba(255, 215, 0, 0.1);
+            border-color: var(--accent-gold);
+            color: var(--accent-gold);
+        }
+    `;
+    document.head.appendChild(style);
+
+    const div = document.createElement('div');
+    div.id = 'selectionTooltip';
+    div.className = 'selection-tooltip hidden';
+    div.innerHTML = `
+        <button class="tooltip-btn" id="btnVizSelect">
+            <span>🎨</span> Visualize
+        </button>
+        <button class="tooltip-btn" id="btnInterrogateSelect">
+            <span>🔍</span> Interrogate
+        </button>
+    `;
+    document.body.appendChild(div);
+
+    // Event Listeners
+    document.getElementById('btnVizSelect').addEventListener('click', (e) => {
+        e.stopPropagation();
+        triggerContextVisual(div.dataset.selectedText, div.dataset.provider);
+        div.classList.add('hidden');
+        window.getSelection().removeAllRanges();
+    });
+
+    document.getElementById('btnInterrogateSelect').addEventListener('click', (e) => {
+        e.stopPropagation();
+        triggerContextInterrogate(div.dataset.selectedText, div.dataset.provider);
+        div.classList.add('hidden');
+        window.getSelection().removeAllRanges();
+    });
+}
+
+async function triggerContextVisual(text, provider) {
+    if (!text || !provider) return;
+
+    // Reuse existing visual logic but with explicit text
+    const btn = document.querySelector(`.visualize-btn[data-target="${provider}"]`);
+    const originalContent = btn ? btn.innerHTML : '';
+    if (btn) btn.innerHTML = '⏳';
+
+    try {
+        const response = await fetch('/visualize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                comparison_id: currentComparisonId,
+                provider: provider,
+                selected_text: text // The Magic Override
+            })
+        });
+
+        const data = await response.json();
+        if (btn) btn.innerHTML = originalContent;
+
+        if (data.chart_url) {
+            showChartModal(data.chart_url, provider);
+        } else if (data.error) {
+            alert(data.error);
+        }
+    } catch (e) {
+        console.error(e);
+        if (btn) btn.innerHTML = originalContent;
+    }
+}
+
+async function triggerContextInterrogate(text, provider) {
+    if (!text || !provider) return;
+
+    // Open modal directly with pre-filled context
+    // We can reuse openInterrogation logic but pass specific claim
+
+    // Prompt User for specific question about this claim?
+    const userQ = prompt("Interrogate highlight:\n" + text.substring(0, 50) + "...\n\nEnter your specific challenge:", "Is this accurate?");
+    if (!userQ) return;
+
+    // Send to backend
+    // Finding the card to show loading state is tricky, just use global loading
+    loadingState.classList.remove('hidden');
+
+    try {
+        const payload = {
+            model: provider,
+            question: userQ,
+            previous_response: responses[provider].response.innerText,
+            selected_text: text // The Magic Override
+        };
+
+        const response = await fetch('/interrogate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+
+        loadingState.classList.add('hidden');
+
+        if (data.success) {
+            // Show result. Maybe append to card? 
+            // For now, let's just alert or log, OR append to the card forcefully.
+            const card = responses[provider].card;
+            const interrogationDiv = document.createElement('div');
+            interrogationDiv.className = 'interrogation-result';
+            interrogationDiv.style.border = '1px solid red';
+            interrogationDiv.style.padding = '10px';
+            interrogationDiv.style.marginTop = '10px';
+            interrogationDiv.style.background = '#1a0505';
+            interrogationDiv.innerHTML = `
+                <h4 style="color:red">🕵️ SURGICAL INTERROGATION</h4>
+                <p><strong>Claim:</strong> "${text.substring(0, 100)}..."</p>
+                <p><strong>Verdict:</strong> ${formatMarkdown(data.response)}</p>
+            `;
+            // Fix: Use .response-content as the body, or append to card directly
+            const targetContainer = card.querySelector('.response-content') || card;
+            targetContainer.appendChild(interrogationDiv);
+        } else {
+            alert(`Interrogation refused: ${data.response || data.error || 'Unknown Reason'}`);
+        }
+    } catch (e) {
+        loadingState.classList.add('hidden');
+        alert(`Interrogation crashed: ${e.message}`);
+        console.error(e);
+    }
+}
+
+// ==================== //
 // History & UI Logic
 // ==================== //
 const historySidebar = document.getElementById('historySidebar');
