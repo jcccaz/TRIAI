@@ -1177,11 +1177,24 @@ If no numeric data is found, return: {{"error": "No visualizable data found"}}
             except:
                 pass
         
-        # If all parsing failed, return error
+        # If all parsing failed, try to generate a conceptual image instead
         if not chart_data:
-            return jsonify({
-                "error": f"Could not parse data. Claude returned: {extracted_json[:200]}"
-            }), 400
+            print("Chart extraction failed, falling back to Image Construction...")
+            try:
+                # Use the first 500 chars as the concept
+                concept = response_text[:500]
+                image_url = fabricate_and_persist_visual(concept, role='analyst', profile='realistic')
+                
+                if image_url:
+                    return jsonify({"chart_url": image_url})
+                else:
+                    return jsonify({
+                        "error": "Could not extract chart data, and image generation failed."
+                    }), 400
+            except Exception as e:
+                return jsonify({
+                    "error": f"Visualization failed: {str(e)}"
+                }), 400
         
         if 'error' in chart_data:
             return jsonify({"message": chart_data['error']}), 200
