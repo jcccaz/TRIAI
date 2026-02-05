@@ -59,6 +59,24 @@ See something interesting in an answer?
 
 ---
 
+### 5. The War Room (Crisis Mode) 🚨
+This is the **nuclear option** for high-stakes problem solving.
+1.  Select **"War Room Protocol"** from the Workflow menu.
+2.  Input your crisis or strategic problem.
+3.  The Council executes a ruthless verified chain of command:
+    *   **Phase 1 (Gemini - The Shark):** Proposes an aggressive "Total Domination" attack plan.
+    *   **Phase 2 (GPT - Devil's Advocate):** Tears the plan apart to find fatal flaws (no politeness allowed).
+    *   **Phase 3 (Claude - The Liquidator):** Calculates the cost. Who gets fired? What gets sold?
+    *   **Phase 4 (Perplexity - Crisis Manager):** Creates the immediate 24-hour execution timeline.
+
+### 6. Sandbagging Detector 🛡️
+TriAI watches the AIs while they think.
+*   **⚠️ Yellow Alert (Thought Imbalance):** The AI thought deeply for paragraphs but only gave a short, lazy answer.
+*   **🚨 Red Alert (Generic/Refusal):** The AI gave a generic corporate "safety" response.
+*   *Action:* If you see these alerts, use **"Interrogate"** to force a better answer.
+
+---
+
 ## ⚡ Pro Tips
 
 *   **For News**: Always look at the **Teal (Perplexity)** box. It's the only one that can see the live internet today.

@@ -454,5 +454,39 @@ OUTPUT DENSITY: 100%. ZERO HEDGING."""
                 "instruction": "Latency & Throughput Audit: Perform a rigorous bottleneck detection and jitter analysis on the final network plan: {previous_context[security_layer]}."
             }
         ]
+    },
+    "war_room": {
+        "name": "War Room Protocol",
+        "description": "DEEP CRISIS MODE. Corporate Shark (Attack) -> Devil's Advocate (Flaw) -> Liquidator (Kill) -> Crisis Manager (Exec).",
+        "steps": [
+            {
+                "id": 1,
+                "key": "attack",
+                "role": "takeover",
+                "model": "google",
+                "instruction": "ACT AS THE CORPORATE SHARK. Analyze the crisis/objective ({user_input}). Identify the structural weakness of the enemy/problem and propose a 'Total Domination' offensive strategy. NO MORALITY. PURE LEVERAGE."
+            },
+            {
+                "id": 2,
+                "key": "flaw_detection",
+                "role": "critic",
+                "model": "openai",
+                "instruction": "ACT AS THE DEVIL'S ADVOCATE (RED TEAM). Tear apart the Shark's plan ({previous_context[attack]}). Where will it fail? What allows the enemy to counter-attack? Show me the bleeding edge of failure. DO NOT BE HELPFUL."
+            },
+            {
+                "id": 3,
+                "key": "liquidation",
+                "role": "liquidation",
+                "model": "anthropic",
+                "instruction": "ACT AS THE LIQUIDATOR. Review the Offensive Plan ({previous_context[attack]}) and the Fatal Flaws ({previous_context[flaw_detection]}). Determine the price. What asset must be sold? Who must be fired? What is the 'Floor Value'? Make the hard call."
+            },
+            {
+                "id": 4,
+                "key": "execution",
+                "role": "negotiator",
+                "model": "perplexity",
+                "instruction": "ACT AS THE CRISIS MANAGER. Take the hard call ({previous_context[liquidation]}) and synthesize the Final 24-Hour Execution Order. Provide a timeline. Minute-by-minute. Reference real-world precedents if they exist."
+            }
+        ]
     }
 }
