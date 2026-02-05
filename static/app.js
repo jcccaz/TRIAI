@@ -196,6 +196,24 @@ fileUploadArea.addEventListener('drop', (e) => {
     }
 });
 
+// Global Paste Support (Screenshots)
+document.addEventListener('paste', (e) => {
+    const items = (e.clipboardData || window.clipboardData).items;
+    const files = [];
+    if (items) {
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].kind === 'file') {
+                const file = items[i].getAsFile();
+                if (file) files.push(file);
+            }
+        }
+    }
+    if (files.length > 0) {
+        handleFileSelect(files);
+        e.preventDefault(); // Stop image binary from pasting into textarea
+    }
+});
+
 fileInput.addEventListener('change', (e) => {
     if (e.target.files.length) {
         handleFileSelect(e.target.files);
@@ -804,6 +822,85 @@ function updateResponse(aiName, data) {
     } else if (elements.bias) {
         elements.bias.classList.add('hidden');
     }
+
+    // Enforcement Report Rendering
+    if (data.enforcement && Object.keys(data.enforcement).length > 0) {
+        renderEnforcementReport(elements.card, data.enforcement);
+    } else {
+        const existingReport = elements.card.querySelector('.enforcement-report');
+        if (existingReport) existingReport.remove();
+        const badge = elements.card.querySelector('.credibility-badge');
+        if (badge) badge.remove();
+    }
+}
+
+function renderEnforcementReport(card, enforcement) {
+    // 1. Render Badge in Header
+    const headerInfo = card.querySelector('.ai-info');
+    // Check if headerInfo exists to avoid errors
+    if (!headerInfo) return;
+
+    let badge = card.querySelector('.credibility-badge');
+    if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'credibility-badge';
+        headerInfo.appendChild(badge);
+    }
+
+    // Determine badge class
+    const score = enforcement.current_credibility !== undefined ? enforcement.current_credibility : 100;
+    let scoreClass = 'high';
+    if (score < 70) scoreClass = 'low';
+    else if (score < 90) scoreClass = 'medium';
+
+    badge.className = `credibility-badge ${scoreClass}`;
+    badge.textContent = `Truth Score: ${score}/100`;
+
+    // 2. Render Report Body
+    // Location: After thought container, before response
+    const thoughtContainer = card.querySelector('.thought-container');
+    const responseDiv = card.querySelector('.ai-response');
+
+    let reportDiv = card.querySelector('.enforcement-report');
+    if (!reportDiv) {
+        reportDiv = document.createElement('div');
+        reportDiv.className = 'enforcement-report';
+        // Insert after thought container or before response
+        if (responseDiv) card.insertBefore(reportDiv, responseDiv);
+        else card.appendChild(reportDiv);
+    }
+
+    // Clean Pass?
+    if (enforcement.status === 'PASSED') {
+        reportDiv.className = 'enforcement-report clean';
+        reportDiv.innerHTML = `
+            <div class="enforcement-passed">
+                Strict Adherence Verified (+0 Penalty)
+            </div>
+        `;
+        return;
+    }
+
+    // Violation/Warning List
+    reportDiv.className = 'enforcement-report'; // reset
+
+    let html = `<div class="enforcement-header">⚠️ Protocol Variance Detected</div>`;
+    html += `<ul class="violation-list">`;
+
+    if (enforcement.violations) {
+        enforcement.violations.forEach(v => {
+            html += `<li class="violation-item">${v}</li>`;
+        });
+    }
+
+    if (enforcement.warnings) {
+        enforcement.warnings.forEach(w => {
+            html += `<li class="warning-item">${w}</li>`;
+        });
+    }
+
+    html += `</ul>`;
+    reportDiv.innerHTML = html;
 }
 
 function handleCitationToggle() {

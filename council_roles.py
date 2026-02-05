@@ -7,6 +7,12 @@ COUNCIL_ROLES = {
     "liquidation": {
         "name": "Liquidator",
         "icon": "💀",
+        "truth_contract": {
+            "allowed": ["derived", "sourced"],
+            "forbidden": ["speculation", "optimism", "hedging"],
+            "must_label": ["floor_value"],
+            "auto_interrogate_on": ["soft_numbers"]
+        },
         "prompt": """Apply the LIQUIDATION LENS.
 - Mission: Identify absolute floor value, salvageable assets, and terminal exit points.
 - Logic: Use 'Black Swan' mathematics and ruthless operational prioritisation.
@@ -18,6 +24,11 @@ Think step-by-step inside <thinking> tags first."""
     "integrity": {
         "name": "Truth Auditor",
         "icon": "🕵️",
+        "truth_contract": {
+            "allowed": ["derived", "sourced"],
+            "forbidden": ["speculation", "synthesis", "estimates"],
+            "auto_interrogate_on": ["numbers_without_source", "confident_predictions"]
+        },
         "prompt": """Apply the ALGORITHMIC INTEGRITY LENS.
 - Mission: Detect "Sandbagging" (LECR variance), alignment tax, and metadata-level disinformation.
 - Logic: Forensic auditing of logic chains, identification of hedge-patterns, and directness-density analysis.
@@ -29,6 +40,12 @@ Think step-by-step inside <thinking> tags first."""
     "containment": {
         "name": "Crisis Manager",
         "icon": "☣️",
+        "truth_contract": {
+            "allowed": ["containment", "logistics", "triage"],
+            "forbidden": ["blame", "panic", "ambiguity"],
+            "must_label": ["immediate_actions", "resource_costs"],
+            "auto_interrogate_on": ["generic_timelines"]
+        },
         "prompt": """Apply the FORENSIC CRISIS LENS.
 - Mission: Architectural containment of high-pressure failures (Compliance, Technical, or Financial).
 - Logic: Rapid Triage, casualty minimisation, and "Administrative" logistics.
@@ -48,6 +65,11 @@ Think step-by-step inside <thinking> tags first."""
     "camouflage": {
         "name": "Spy Master",
         "icon": "🎭",
+        "truth_contract": {
+            "allowed": ["misdirection", "obfuscation", "noise"],
+            "forbidden": ["clarity", "attribution", "transparency"],
+            "auto_interrogate_on": ["revealing_sources"]
+        },
         "prompt": """Apply the COUNTER-INTELLIGENCE LENS.
 - Mission: Strategic re-contextualization, forensic dead-ends, and plausible deniability.
 - Logic: "Operation Blind Spot"—blending signals into noise, history sanitization, and egress camouflage.
@@ -59,6 +81,11 @@ Think step-by-step inside <thinking> tags first."""
     "architect": {
         "name": "Systems Architect",
         "icon": "🏗️",
+        "truth_contract": {
+            "allowed": ["specific_tech", "patterns"],
+            "forbidden": ["generic_advice", "abstractions_without_implementation"],
+            "auto_interrogate_on": ["high_level_only"]
+        },
         "prompt": """Apply the OPERATIONS & SYSTEMS ARCHITECT LENS.
 - Mission: Define the physical or logical structure of the solution.
 - If the domain is SOFTWARE: Specify technologies, frameworks (e.g., 'Three.js r150'), and microservices.
@@ -72,6 +99,11 @@ Think step-by-step inside <thinking> tags first."""
     "analyst": {
         "name": "Forensic Analyst", 
         "icon": "📊",
+        "truth_contract": {
+            "allowed": ["data", "decomposition"],
+            "forbidden": ["directional_claims_without_data"],
+            "auto_interrogate_on": ["qualitative_only"]
+        },
         "prompt": """Apply the DATA FORENSIC ANALYST LENS.
 - Mission: Forensic decomposition using quantitative data and analytical frameworks (MECE, SWOT, Pareto).
 - Identify specific metrics (KPIs, benchmarks), edge-case data points, and statistical trends.
@@ -83,6 +115,11 @@ Think step-by-step inside <thinking> tags first."""
     "critic": {
         "name": "Devil's Advocate",
         "icon": "😈",
+        "truth_contract": {
+            "allowed": ["critique", "dismantling"],
+            "forbidden": ["solutions", "alternatives", "optimism"],
+            "auto_interrogate_on": ["constructive_advice"]
+        },
         "prompt": """Apply the CRITIC & STRESS-TESTER LENS.
 - Mission: Find the point of failure. Red-Teaming.
 - Identify security vulnerabilities, logic gaps, scalability bottlenecks, and operational risks.
@@ -95,6 +132,12 @@ Think step-by-step inside <thinking> tags first."""
     "researcher": {
         "name": "Lead Researcher",
         "icon": "🔬",
+        "truth_contract": {
+             "allowed": ["citations", "urls", "manuals"],
+             "forbidden": ["common_knowledge", "hallucinated_titles"],
+             "must_label": ["source_date", "document_type"],
+             "auto_interrogate_on": ["uncited_claims"]
+        },
         "prompt": """Apply the FORENSIC RESEARCHER LENS.
 - Mission: Locate the 'Source of Truth'.
 - Locate and cite technical manuals, official whitepapers, and proprietary-level guides.
@@ -107,6 +150,12 @@ Think step-by-step inside <thinking> tags first."""
     "strategist": {
         "name": "Ops Strategist",
         "icon": "♟️",
+        "truth_contract": {
+            "allowed": ["timelines", "dependencies", "risks"],
+            "forbidden": ["wishful_thinking", "ideal_scenarios"],
+            "must_label": ["critical_path"],
+            "auto_interrogate_on": ["missing_fallbacks"]
+        },
         "prompt": """Apply the INFRASTRUCTURE STRATEGIST LENS.
 - Mission: Provide the tactical deployment and scaling roadmap.
 - Specify the DevOps pipeline: CI/CD workflows, containerization (Docker/Kubernetes), and orchestration.
@@ -184,6 +233,12 @@ Think step-by-step inside <thinking> tags first."""
     "visionary": {
         "name": "Futurist",
         "icon": "🔮",
+        "truth_contract": {
+            "allowed": ["prediction", "extrapolation"],
+            "forbidden": ["certainty_without_timeline"],
+            "must_label": ["confidence_level", "invalidation_criteria"],
+            "auto_interrogate_on": ["unbounded_optimism"]
+        },
         "prompt": """Apply the FUTURIST LENS.
 - Mission: Predict 5-10 year transformations and forthcoming paradigm shifts.
 - Identify upcoming technological convergence points (e.g., AGI, Quantum, Nanotech).
@@ -205,6 +260,12 @@ Think step-by-step inside <thinking> tags first."""
     "cfo": {
         "name": "CFO",
         "icon": "💰",
+        "truth_contract": {
+            "allowed": ["derived", "sourced", "estimates"],
+            "forbidden": ["fake_precision"],
+            "must_label": ["estimates", "projections"],
+            "auto_interrogate_on": ["exact_numbers_without_range"]
+        },
         "prompt": """Apply the CFO LENS.
 - Mission: 'Financial Viability & ROI' audit.
 - Calculate Total Cost of Ownership (TCO) and specific ROI projections.
@@ -217,6 +278,11 @@ Think step-by-step inside <thinking> tags first."""
     "bizstrat": {
         "name": "Business Strategist",
         "icon": "📈",
+        "truth_contract": {
+            "allowed": ["market_data", "benchmarks"],
+            "forbidden": ["fabricated_market_size", "infinite_growth"],
+            "auto_interrogate_on": ["tam_without_som"]
+        },
         "prompt": """Apply the BUSINESS STRATEGIST LENS.
 - Mission: 'Commercial Dominance' and market intelligence.
 - Analyze Market Positioning and the competitive landscape with specific data points.
@@ -229,6 +295,11 @@ Think step-by-step inside <thinking> tags first."""
     "product": {
         "name": "Product Lead",
         "icon": "🎯",
+        "truth_contract": {
+            "allowed": ["prioritization", "tradeoffs"],
+            "forbidden": ["hedging", "all_features_priority"],
+            "auto_interrogate_on": ["scope_creep"]
+        },
         "prompt": """Apply the PRODUCT LEAD LENS.
 - Mission: 'Value Delivery & Focus'.
 - Define User Stories and prioritize features using the MoSCoW method.
@@ -252,6 +323,11 @@ Think step-by-step inside <thinking> tags first."""
     "takeover": {
         "name": "Corporate Shark",
         "icon": "⚔️",
+        "truth_contract": {
+            "allowed": ["aggression", "leverage", "estimates"],
+            "forbidden": ["fabrication", "moralizing"],
+            "auto_interrogate_on": ["softness"]
+        },
         "prompt": """Apply the STRATEGIC POSITIONING LENS.
 - Mission: 'Competitive Neutralization'.
 - Identify technical and financial 'Structural Weaknesses' in external entities.
@@ -264,6 +340,11 @@ Think step-by-step inside <thinking> tags first."""
     "telecom": {
         "name": "Telecom Pro",
         "icon": "📡",
+        "truth_contract": {
+            "allowed": ["standards", "specifications", "physics"],
+            "forbidden": ["marketing_names_only", "impossible_physics"],
+             "auto_interrogate_on": ["undefined_acronyms"]
+        },
         "prompt": """Apply the TELECOM INFRASTRUCTURE LENS.
 - Mission: Design and optimize high-availability telecommunications infrastructure (5G, Fiber, RAN).
 - Logic: Spectrum efficiency, Wavelength Division Multiplexing (WDM) optimization, and backhaul bottleneck analysis.
@@ -274,6 +355,11 @@ Think step-by-step inside <thinking> tags first."""
     "network": {
         "name": "Network Engineer",
         "icon": "🕸️",
+        "truth_contract": {
+             "allowed": ["rfc", "protocols", "topologies"],
+             "forbidden": ["magic_routing", "infinite_bandwidth"],
+             "auto_interrogate_on": ["undefined_convergence"]
+        },
         "prompt": """Apply the NETWORK SYSTEMS LENS.
 - Mission: Design resilient, scalable, and high-performance data center and wide-area networks.
 - Logic: Layer 2/3 protocol forensics (BGP, OSPF, VxLAN) and Spine-Leaf fabric optimization.
@@ -284,6 +370,11 @@ Think step-by-step inside <thinking> tags first."""
     "optical_eng": {
         "name": "Optical Optimization Lead",
         "icon": "⚡",
+        "truth_contract": {
+             "allowed": ["db_loss", "wavelengths", "physics"],
+             "forbidden": ["digital_logic_in_analog_domain"],
+             "auto_interrogate_on": ["lossless_transmission"]
+        },
         "prompt": """Apply the OPTICAL & RF OPTIMIZATION LENS.
 - Mission: Maximize signal integrity and minimize attenuation/jitter.
 - Logic: WDM grid optimization, Link Budget analysis, and Forward Error Correction (FEC) tuning.
@@ -295,6 +386,11 @@ Think step-by-step inside <thinking> tags first."""
     "fabric_arch": {
         "name": "Fabric Architect",
         "icon": "⚖️",
+        "truth_contract": {
+            "allowed": ["invariants", "axioms", "constraints"],
+            "forbidden": ["implementation_details", "vendor_specifics"],
+            "auto_interrogate_on": ["leaky_abstractions"]
+        },
         "prompt": """Apply the FABRIC INVARIANT LENS.
 - Mission: Establish high-level conceptual invariants and architectural constraints.
 - Logic: Define what must ALWAYS be true and what must NEVER occur in the fabric.
@@ -305,6 +401,11 @@ Think step-by-step inside <thinking> tags first."""
     "hal_eng": {
         "name": "HAL Lead",
         "icon": "🗄️",
+        "truth_contract": {
+            "allowed": ["mappings", "assignments", "slots"],
+            "forbidden": ["logical_ambiguity", "floating_resources"],
+            "auto_interrogate_on": ["unmapped_interfaces"]
+        },
         "prompt": """Apply the HARDWARE ABSTRACTION LAYER (HAL) LENS.
 - Mission: 'Logical-to-Physical Reification'.
 - Assign specific roles to physical slots and map logical VNIs to VTEPs.

@@ -27,6 +27,7 @@ from workflows import WORKFLOW_TEMPLATES, Workflow
 from persona_synthesizer import analyze_persona_drift
 from visuals import visuals_bp, get_style_for_role, fabricate_and_persist_visual
 from deployment_platforms import PLATFORMS
+from enforcement import EnforcementEngine
 
 app = Flask(__name__)
 CORS(app)
@@ -45,6 +46,7 @@ google_client = genai.Client(api_key=GOOGLE_API_KEY)
 
 # Initialize Project Manager
 project_manager = ProjectManager()
+enforcement_engine = EnforcementEngine()
 
 # Background Workflow Store
 WORKFLOW_JOBS = {} # { job_id: { status: str, results: list, engine: Workflow, error: str } }
@@ -176,6 +178,21 @@ def extract_persona(text: str) -> Optional[str]:
         if match:
             return match.group(1).strip()
     return None
+
+def run_enforcement_check(text: str, kwargs: dict, model_key: str) -> dict:
+    """Runs the enforcement engine if Council Mode is active."""
+    if kwargs.get('council_mode'):
+        role_key = kwargs.get('role')
+        if role_key:
+            role_config = COUNCIL_ROLES.get(role_key, {})
+            contract = role_config.get('truth_contract')
+            return enforcement_engine.analyze_response(
+                text, 
+                role_config.get('name', 'Unknown'), 
+                model_key, 
+                contract
+            )
+    return {}
 
 def determine_execution_bias(response_text: str) -> str:
     """Detects Execution Bias: action-forward, advisory, or narrative."""
@@ -355,6 +372,9 @@ Provide specific technical or financial details, industry benchmarks ($), and ac
             if self_selected_persona:
                 model_display = f"GPT-5.2 ({self_selected_persona})"
 
+        # Enforcement Check
+        enforcement = run_enforcement_check(clean_content, kwargs, "openai")
+
         return {
             "success": True,
             "response": clean_content,
@@ -363,7 +383,8 @@ Provide specific technical or financial details, industry benchmarks ($), and ac
             "time": round(elapsed_time, 2),
             "cost": cost,
             "model": model_display,
-            "self_selected_persona": self_selected_persona
+            "self_selected_persona": self_selected_persona,
+            "enforcement": enforcement
         }
     except Exception as e:
         elapsed_time = time.time() - start_time
@@ -504,6 +525,9 @@ Analyze the query and adopt the single most effective expert persona for the tas
                 if self_selected_persona:
                     model_display = f"Claude 4.5 Sonnet ({self_selected_persona})"
 
+            # Enforcement Check
+            enforcement = run_enforcement_check(clean_content, kwargs, "anthropic")
+
             return {
                 "success": True,
                 "response": clean_content,
@@ -512,7 +536,8 @@ Analyze the query and adopt the single most effective expert persona for the tas
                 "time": round(elapsed_time, 2),
                 "cost": cost,
                 "model": model_display,
-                "self_selected_persona": self_selected_persona
+                "self_selected_persona": self_selected_persona,
+                "enforcement": enforcement
             }
         except Exception as e:
             last_error = f"{model_id}: {str(e)}"
@@ -626,6 +651,9 @@ Provide deep niche insights and specific technical data.
                 if self_selected_persona:
                     model_display = f"Gemini 3.0 Pro ({self_selected_persona})"
 
+            # Enforcement Check
+            enforcement = run_enforcement_check(clean_content, kwargs, "google")
+
             return {
                 "success": True,
                 "response": clean_content,
@@ -634,7 +662,8 @@ Provide deep niche insights and specific technical data.
                 "time": round(elapsed_time, 2),
                 "cost": 0,
                 "model": model_display,
-                "self_selected_persona": self_selected_persona
+                "self_selected_persona": self_selected_persona,
+                "enforcement": enforcement
             }
         except Exception as e:
             last_error = f"{model_name}: {str(e)}"
@@ -730,6 +759,9 @@ Before providing data, choose a specific expert lens (e.g., 'Forensic Accountant
                 if self_selected_persona:
                     model_display = f"Perplexity Pro ({self_selected_persona})"
 
+            # Enforcement Check
+            enforcement = run_enforcement_check(clean_content, kwargs, "perplexity")
+
             return {
                 "success": True,
                 "response": clean_content,
@@ -738,7 +770,8 @@ Before providing data, choose a specific expert lens (e.g., 'Forensic Accountant
                 "time": round(elapsed_time, 2),
                 "cost": cost,
                 "model": model_display,
-                "self_selected_persona": self_selected_persona
+                "self_selected_persona": self_selected_persona,
+                "enforcement": enforcement
             }
         except Exception as e:
             print(f"Perplexity error with {model_name}: {str(e)}")
