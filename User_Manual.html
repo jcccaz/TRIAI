@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TriAI User Manual</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #e2e8f0;
+            --accent-green: #10b981;
+            --accent-orange: #f97316;
+            --accent-blue: #3b82f6;
+            --accent-teal: #14b8a6;
+            --border-color: #334155;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #fff;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            text-align: center;
+            border: none;
+            margin-bottom: 40px;
+        }
+
+        h2 {
+            margin-top: 40px;
+            color: var(--accent-blue);
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .ai-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .ai-box {
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
+            color: #fff;
+        }
+
+        .ai-green {
+            background-color: rgba(16, 185, 129, 0.2);
+            border: 1px solid var(--accent-green);
+        }
+
+        .ai-orange {
+            background-color: rgba(249, 115, 22, 0.2);
+            border: 1px solid var(--accent-orange);
+        }
+
+        .ai-blue {
+            background-color: rgba(59, 130, 246, 0.2);
+            border: 1px solid var(--accent-blue);
+        }
+
+        .ai-teal {
+            background-color: rgba(20, 184, 166, 0.2);
+            border: 1px solid var(--accent-teal);
+        }
+
+        .icon {
+            font-size: 1.2em;
+            margin-right: 8px;
+        }
+
+        code {
+            background-color: #000;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            color: #d8b4fe;
+        }
+
+        .pro-tip {
+            border-left: 4px solid var(--accent-orange);
+            background-color: rgba(249, 115, 22, 0.1);
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        a {
+            color: var(--accent-blue);
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>🚀 TriAI User Manual<br><span style="font-size:0.5em; opacity:0.7;">The Ultimate AI Command Center</span></h1>
+
+    <div class="card">
+        <h2>👋 Welcome</h2>
+        <p>TriAI is a powerful tool that lets you talk to the world's 4 smartest AIs at the same time.</p>
+        <p>Instead of opening 4 different tabs, TriAI sends your question to everyone instantly and shows you the
+            answers side-by-side.</p>
+
+        <div class="ai-grid">
+            <div class="ai-box ai-green">GPT-5.2<br><span style="font-size:0.8em; opacity:0.8;">Logic & Reasoning</span>
+            </div>
+            <div class="ai-box ai-orange">Claude 4.5<br><span style="font-size:0.8em; opacity:0.8;">Writing &
+                    Coding</span></div>
+            <div class="ai-box ai-blue">Gemini 3.0<br><span style="font-size:0.8em; opacity:0.8;">Speed & Vision</span>
+            </div>
+            <div class="ai-box ai-teal">Perplexity<br><span style="font-size:0.8em; opacity:0.8;">Live News &
+                    Search</span></div>
+        </div>
+    </div>
+
+    <h2>🎮 How to Use It</h2>
+
+    <div class="card">
+        <h3>1. The Basics: "Compare Mode"</h3>
+        <p>This is the default screen.</p>
+        <ol>
+            <li><strong>Type a question</strong> in the big box at the top.</li>
+            <li><strong>Hit Enter</strong> (or click "Ask All AIs").</li>
+            <li><strong>Watch the magic</strong> as 4 colored panels light up with answers.</li>
+        </ol>
+    </div>
+
+    <div class="card">
+        <h3>2. Council Mode 👥 ("Assigning Jobs")</h3>
+        <p>Want to get serious? You can assign specific "jobs" to each AI so they work as a team.</p>
+        <ul>
+            <li>Click the <strong>"Council"</strong> button.</li>
+            <li>Choose a preset or assign roles like:
+                <ul>
+                    <li>⚖️ <strong>International Lawyer</strong></li>
+                    <li>🧠 <strong>Behavioral Psychologist</strong></li>
+                    <li>🏴‍☠️ <strong>Hacker</strong></li>
+                    <li>🧬 <strong>Biologist</strong></li>
+                </ul>
+            </li>
+            <li>Now they will act like experts (The Optimist, The Critic, The Researcher, etc).</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3>3. Visualizations 📊 & 🎨</h3>
+        <p>TriAI doesn't just write text; it can draw!</p>
+        <ul>
+            <li><span class="icon">📊</span><strong>Charts:</strong> If you ask for data, look for the Chart Icon on the
+                response.</li>
+            <li><span class="icon">📐</span><strong>Blueprints & Art:</strong> Highlight <strong>ANY</strong> text. A
+                glass menu will pop up. clickable <strong>Blueprint</strong> or <strong>Art</strong>.</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3>4. Sniper Mode 🎯</h3>
+        <p>See something interesting in an answer?</p>
+        <ol>
+            <li><strong>Highlight the text</strong> with your mouse.</li>
+            <li>A small menu appears instantly.</li>
+            <li>Click <strong>"Interrogate"</strong> to deep-dive into <em>just</em> that specific sentence.</li>
+        </ol>
+    </div>
+
+    <div class="pro-tip">
+        <h3>⚡ Pro Tips</h3>
+        <ul>
+            <li><strong>For News:</strong> Always look at the <strong>Teal (Perplexity)</strong> box. It sees the live
+                internet.</li>
+            <li><strong>For Writing:</strong> <strong>Orange (Claude)</strong> is usually the best writer.</li>
+            <li><strong>Hard Mode:</strong> If they are being too polite, turn on <strong>Hard Mode</strong> to make
+                them direct and decisive.</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>🚀 How to Start It</h2>
+        <p>1. Double-click the <code>run_triai.bat</code> file in the folder.</p>
+        <p>2. Wait for the black window to appear.</p>
+        <p>3. Your browser will open automatically to the TriAI Command Center.</p>
+    </div>
+
+</body>
+
+</html>

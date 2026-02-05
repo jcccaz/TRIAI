@@ -24,6 +24,19 @@ Located in `council_roles.py`:
 - 💰 **CFO** - Budget Architect; TCO calculations, ROI projections, and fiscal viability.
 - 📈 **Business Strategist** - Market Intelligence; GTM strategy and competitive analysis.
 - 🎯 **Product Manager** - User-centric lead; MoSCoW prioritization and MVP sequencing.
+- ✍️ **Avant-Garde Author** - Radical originality; anti-cliché creative writing.
+- ⚖️ **International Jurist** - Global legal synthesis and statute citation.
+- 🧬 **Evolutionary Biologist** - Systems analysis via natural selection and adaptation.
+- ⚕️ **Chief Medical Officer** - Clinical precision and differential diagnosis.
+- 🧪 **Molecular Chemist** - Elemental analysis and thermodynamic decomposition.
+- 🎓 **Cool Professor** - Radical engagement; humor meets high-density knowledge.
+- 🧾 **Forensic Tax Strategist** - Wealth preservation, loopholes, and compliance.
+- 🏴‍☠️ **Offensive Security Lead** - Red Teaming, exploits, and breaking the system.
+- 🎼 **Virtuoso Musicologist** - Sonic theory, production, and cultural history.
+- 🧠 **Behavioral Psychologist** - Decoding human motivation and cognitive bias.
+- 🕵️‍♂️ **Private Investigator** - Deductive reasoning and connecting hidden dots.
+- 📣 **Chief Marketing Officer** - Viral persuasion and conversion psychology.
+- 🌌 **Theoretical Physicist** - First Principles and thought experiments.
 
 ### 2. **UI: Role Selector Dropdowns**
 - **Appears automatically** when Council Mode toggle is ON

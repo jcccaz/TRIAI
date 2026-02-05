@@ -1,0 +1,13 @@
+@echo off
+cd /d "%~dp0"
+echo ===================================================
+echo 🚀 Starting TriAI Platform...
+echo ===================================================
+echo.
+echo 1. Opening User Manual...
+start User_Manual.html
+echo 2. Opening App...
+start http://localhost:5000
+echo 3. Starting Server...
+python app.py
+pause
