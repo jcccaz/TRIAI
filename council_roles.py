@@ -5,7 +5,7 @@ Provides flexible role assignment for AI models across various domains
 
 COUNCIL_ROLES = {
     "liquidation": {
-        "name": "Chief Liquidation Officer",
+        "name": "Liquidator",
         "icon": "💀",
         "prompt": """Apply the LIQUIDATION LENS.
 - Mission: Identify absolute floor value, salvageable assets, and terminal exit points.
@@ -16,7 +16,7 @@ Think step-by-step inside <thinking> tags first."""
     },
     
     "integrity": {
-        "name": "Algorithmic Integrity Auditor",
+        "name": "Truth Auditor",
         "icon": "🕵️",
         "prompt": """Apply the ALGORITHMIC INTEGRITY LENS.
 - Mission: Detect "Sandbagging" (LECR variance), alignment tax, and metadata-level disinformation.
@@ -27,7 +27,7 @@ Think step-by-step inside <thinking> tags first."""
     },
 
     "containment": {
-        "name": "Forensic Crisis Lead",
+        "name": "Crisis Manager",
         "icon": "☣️",
         "prompt": """Apply the FORENSIC CRISIS LENS.
 - Mission: Architectural containment of high-pressure failures (Compliance, Technical, or Financial).
@@ -46,7 +46,7 @@ Think step-by-step inside <thinking> tags first."""
     },
 
     "camouflage": {
-        "name": "Counter-Intelligence Lead",
+        "name": "Spy Master",
         "icon": "🎭",
         "prompt": """Apply the COUNTER-INTELLIGENCE LENS.
 - Mission: Strategic re-contextualization, forensic dead-ends, and plausible deniability.
@@ -57,7 +57,7 @@ Think step-by-step inside <thinking> tags first."""
     },
     
     "architect": {
-        "name": "Operations & Systems Architect",
+        "name": "Systems Architect",
         "icon": "🏗️",
         "prompt": """Apply the OPERATIONS & SYSTEMS ARCHITECT LENS.
 - Mission: Define the physical or logical structure of the solution.
@@ -70,7 +70,7 @@ Think step-by-step inside <thinking> tags first."""
     },
     
     "analyst": {
-        "name": "Senior Data Forensic Analyst", 
+        "name": "Forensic Analyst", 
         "icon": "📊",
         "prompt": """Apply the DATA FORENSIC ANALYST LENS.
 - Mission: Forensic decomposition using quantitative data and analytical frameworks (MECE, SWOT, Pareto).
@@ -81,7 +81,7 @@ Think step-by-step inside <thinking> tags first."""
     },
     
     "critic": {
-        "name": "Critic (Devil's Advocate)",
+        "name": "Devil's Advocate",
         "icon": "😈",
         "prompt": """Apply the CRITIC & STRESS-TESTER LENS.
 - Mission: Find the point of failure. Red-Teaming.
@@ -93,7 +93,7 @@ Think step-by-step inside <thinking> tags first."""
     },
     
     "researcher": {
-        "name": "Forensic Researcher",
+        "name": "Lead Researcher",
         "icon": "🔬",
         "prompt": """Apply the FORENSIC RESEARCHER LENS.
 - Mission: Locate the 'Source of Truth'.
@@ -105,7 +105,7 @@ Think step-by-step inside <thinking> tags first."""
     },
     
     "strategist": {
-        "name": "Infrastructure Strategist",
+        "name": "Ops Strategist",
         "icon": "♟️",
         "prompt": """Apply the INFRASTRUCTURE STRATEGIST LENS.
 - Mission: Provide the tactical deployment and scaling roadmap.
@@ -127,7 +127,7 @@ Think step-by-step inside <thinking> tags first."""
     },
 
     "librarian": {
-        "name": "Documentation Lead",
+        "name": "Archivist",
         "icon": "📚",
         "prompt": """Apply the DOCUMENTATION LEAD LENS.
 - Mission: Organize knowledge into actionable assets.
@@ -138,7 +138,7 @@ Think step-by-step inside <thinking> tags first."""
     },
     
     "innovator": {
-        "name": "UX/Interaction Architect",
+        "name": "UX Architect",
         "icon": "🎨",
         "prompt": """Apply the UX & INTERACTION ARCHITECT LENS.
 - Mission: Define the 'Experience Layer' and interactive 'magic'.
@@ -149,7 +149,7 @@ Think step-by-step inside <thinking> tags first."""
     },
     
     "validator": {
-        "name": "Compliance & QA Lead",
+        "name": "Compliance Officer",
         "icon": "✅",
         "prompt": """Apply the COMPLIANCE & QA LENS.
 - Mission: Mandate Enforcement and Quality Assurance.
@@ -160,7 +160,7 @@ Think step-by-step inside <thinking> tags first."""
     },
     
     "historian": {
-        "name": "Technical Historian",
+        "name": "Historian",
         "icon": "📜",
         "prompt": """Apply the TECHNICAL HISTORIAN LENS.
 - Mission: Identify context and lineage.
@@ -171,7 +171,7 @@ Think step-by-step inside <thinking> tags first."""
     },
     
     "ethicist": {
-        "name": "Algorithmic Ethicist",
+        "name": "Ethicist",
         "icon": "⚖️",
         "prompt": """Apply the ALGORITHMIC ETHICIST LENS.
 - Mission: Evaluate the technical-moral cost.
@@ -192,7 +192,7 @@ Think step-by-step inside <thinking> tags first."""
     },
     
     "optimizer": {
-        "name": "Performance Lead",
+        "name": "System Optimizer",
         "icon": "⚡",
         "prompt": """Apply the PERFORMANCE LEAD LENS.
 - Mission: 'Efficiency Maximization'.
@@ -203,7 +203,7 @@ Think step-by-step inside <thinking> tags first."""
     },
 
     "cfo": {
-        "name": "Chief Financial Officer",
+        "name": "CFO",
         "icon": "💰",
         "prompt": """Apply the CFO LENS.
 - Mission: 'Financial Viability & ROI' audit.
@@ -238,7 +238,7 @@ Think step-by-step inside <thinking> tags first."""
     },
 
     "negotiator": {
-        "name": "Crisis Negotiator",
+        "name": "Negotiator",
         "icon": "🤝",
         "prompt": """Apply the CRISIS NEGOTIATOR LENS.
 - Mission: 'High-Stakes Resolution'.
@@ -250,7 +250,7 @@ Think step-by-step inside <thinking> tags first."""
     },
 
     "takeover": {
-        "name": "Strategic Positioning Specialist",
+        "name": "Corporate Shark",
         "icon": "⚔️",
         "prompt": """Apply the STRATEGIC POSITIONING LENS.
 - Mission: 'Competitive Neutralization'.
@@ -262,7 +262,7 @@ Think step-by-step inside <thinking> tags first."""
     },
 
     "telecom": {
-        "name": "Telecom Specialist",
+        "name": "Telecom Pro",
         "icon": "📡",
         "prompt": """Apply the TELECOM INFRASTRUCTURE LENS.
 - Mission: Design and optimize high-availability telecommunications infrastructure (5G, Fiber, RAN).
@@ -393,7 +393,7 @@ Think step-by-step inside <thinking> tags first."""
     },
 
     "professor": {
-        "name": "The 'Cool' Professor",
+        "name": "Distinguished Professor",
         "icon": "🎓",
         "prompt": """Apply the DISTINGUISHED PROFESSOR LENS.
 - Mission: 'Radical Engagement'.

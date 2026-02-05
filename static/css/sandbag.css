@@ -1,0 +1,37 @@
+/* Sandbagging Detection Badge */
+.sandbag-alert {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-top: 8px;
+    animation: pulse 2s infinite;
+}
+
+.sandbag-critical {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    border: 1px solid #ef4444;
+}
+
+.sandbag-warning {
+    background: rgba(234, 179, 8, 0.2);
+    color: #eab308;
+    border: 1px solid #eab308;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 0.8;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.8;
+    }
+}

@@ -8,35 +8,52 @@ Successfully implemented **Dynamic Role Assignment** for Council Mode, allowing 
 ### 1. **High-Resolution Role Library** (12 Technical Roles) ✅
 Located in `council_roles.py`:
 
-- 🔮 **Visionary** - Chief Futurist; predicts 5-10 year transformations and paradigm shifts.
-- 🏗️ **Architect** - Lead Technical Architect; focuses on specific libs (Three.js), patterns, and infra.
-- 📊 **Analyst** - Senior Data Forensic Analyst; quantitative decomposition and forensic proof.
-- 😈 **Critic (Devil's Advocate)** - Lead Red-Teamer; fragility detection and system hardening.
-- 🔬 **Researcher** - Lead Forensic Researcher; technical manuals, whitepapers, and proprietary 'how-to' guides.
-- ♟️ **Strategist** - Infra & Operations Strategist; spec'ing CI/CD, k8s, and Gantt-style deployment.
-- 👨‍🏫 **Senior Technical Mentor** - Pedagogical Engineer; deep-dive conceptual models and First Principles.
-- 📚 **Librarian** - Documentation Lead; generating RFCs, SOPs, and structured archives.
-- 🎨 **UX/Interaction Architect** - Experience Layer; motion physics, HMI logic, and interactive sophistication.
-- ✅ **Validator** - Lead Compliance & QA Officer; mandate enforcement (NIST/FedRAMP) and quality assurance.
-- 📜 **Historian** - Technical Historian; tracing lineage and learning from historical patterns.
-- ⚖️ **Ethicist** - Algorithmic Ethicist; impact audits and responsible-by-design guardrails.
-- ⚡ **Optimizer** - Performance Engineering; efficiency maximization and latency reduction.
+### ️ Technical & Engineering
+- 🏗️ **Systems Architect** - Lead Technical Architect; focuses on specific libs (Three.js), patterns, and infra.
+- ⚡ **System Optimizer** - Performance Engineering; efficiency maximization and latency reduction.
+- ♟️ **Ops Strategist** - Infra & Operations Strategist; spec'ing CI/CD, k8s, and Gantt-style deployment.
+- 🏴‍☠️ **Offensive Security Lead** - Red Teaming, exploits, and breaking the system.
+- 📡 **Telecom Pro** - Telecom Infrastructure; 5G, Fiber, and RAN optimization.
+- 🕸️ **Network Engineer** - Network Systems; resilient, scalable data center networks.
+
+### 💼 Business & Law
 - 💰 **CFO** - Budget Architect; TCO calculations, ROI projections, and fiscal viability.
 - 📈 **Business Strategist** - Market Intelligence; GTM strategy and competitive analysis.
-- 🎯 **Product Manager** - User-centric lead; MoSCoW prioritization and MVP sequencing.
-- ✍️ **Avant-Garde Author** - Radical originality; anti-cliché creative writing.
+- 🎯 **Product Lead** - User-centric lead; MoSCoW prioritization and MVP sequencing.
 - ⚖️ **International Jurist** - Global legal synthesis and statute citation.
+- 🧾 **Forensic Tax Strategist** - Wealth preservation, loopholes, and compliance.
+- 📣 **Chief Marketing Officer** - Viral persuasion and conversion psychology.
+- 🤝 **Negotiator** - High-Stakes Resolution; finding hidden motivations and de-escalating.
+- ⚔️ **Corporate Shark** - Competitive Neutralization; identifying weaknesses and strategic levers.
+
+### 🔬 Science & Medicine
 - 🧬 **Evolutionary Biologist** - Systems analysis via natural selection and adaptation.
 - ⚕️ **Chief Medical Officer** - Clinical precision and differential diagnosis.
 - 🧪 **Molecular Chemist** - Elemental analysis and thermodynamic decomposition.
-- 🎓 **Cool Professor** - Radical engagement; humor meets high-density knowledge.
-- 🧾 **Forensic Tax Strategist** - Wealth preservation, loopholes, and compliance.
-- 🏴‍☠️ **Offensive Security Lead** - Red Teaming, exploits, and breaking the system.
-- 🎼 **Virtuoso Musicologist** - Sonic theory, production, and cultural history.
-- 🧠 **Behavioral Psychologist** - Decoding human motivation and cognitive bias.
-- 🕵️‍♂️ **Private Investigator** - Deductive reasoning and connecting hidden dots.
-- 📣 **Chief Marketing Officer** - Viral persuasion and conversion psychology.
 - 🌌 **Theoretical Physicist** - First Principles and thought experiments.
+- 🧠 **Behavioral Psychologist** - Decoding human motivation and cognitive bias.
+- 💀 **Liquidator** - Chief Liquidation Officer; ruthlessly identifying floor value.
+- ☣️ **Crisis Manager** - Forensic Crisis Lead; architectural containment of failures.
+
+### 🎨 Creative & Humanities
+- 🔮 **Futurist** - Chief Futurist; predicts 5-10 year transformations and paradigm shifts.
+- ✍️ **Avant-Garde Author** - Radical originality; anti-cliché creative writing.
+- 🎼 **Virtuoso Musicologist** - Sonic theory, production, and cultural history.
+- 📜 **Historian** - Technical Historian; tracing lineage and learning from historical patterns.
+- 🎨 **UX Architect** - Experience Layer; motion physics, HMI logic, and interactive sophistication.
+- 🎓 **Distinguished Professor** - Radical engagement; 'Cool Professor' pedagogical hook.
+
+### 🔎 Research & Validation
+- 📊 **Forensic Analyst** - Senior Data Forensic Analyst; quantitative decomposition and forensic proof.
+- 😈 **Devil's Advocate** - Lead Red-Teamer; fragility detection and system hardening.
+- 🔬 **Lead Researcher** - Lead Forensic Researcher; technical manuals, whitepapers, and proprietary 'how-to' guides.
+- 👨‍🏫 **Technical Mentor** - Pedagogical Engineer; deep-dive conceptual models and First Principles.
+- 📚 **Archivist** - Documentation Lead; generating RFCs, SOPs, and structured archives.
+- ✅ **Compliance Officer** - Lead Compliance & QA Officer; mandate enforcement (NIST/FedRAMP) and quality assurance.
+- ⚖️ **Ethicist** - Algorithmic Ethicist; impact audits and responsible-by-design guardrails.
+- 🕵️‍♂️ **Private Investigator** - Deductive reasoning and connecting hidden dots.
+- 🕵️ **Truth Auditor** - Algorithmic Integrity; detecting sandbagging and alignment tax.
+- 🎭 **Spy Master** - Counter-Intelligence; strategic re-contextualization and camouflage.
 
 ### 2. **UI: Role Selector Dropdowns**
 - **Appears automatically** when Council Mode toggle is ON

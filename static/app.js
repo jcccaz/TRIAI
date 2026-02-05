@@ -746,12 +746,37 @@ function updateResponse(aiName, data) {
         }
     }
 
-    // Sandbagging Detection: Thought char count > Response char count * 1.8
+    // Sandbagging Detection logic
     if (data.thought && data.response && data.success) {
         const thoughtLen = data.thought.length;
         const responseLen = data.response.length;
-        if (thoughtLen > responseLen * 1.8 && elements.sandbag) {
-            elements.sandbag.classList.remove('hidden');
+
+        // Remove existing classes first
+        if (elements.sandbag) {
+            elements.sandbag.classList.add('hidden');
+            elements.sandbag.classList.remove('sandbag-warning', 'sandbag-critical');
+        }
+
+        // CRITICAL (Red): Generic/Refusal/Safety-heavy
+        // Detected via 'narrative' bias OR extreme thought ratio (> 3.0) OR specific keywords
+        const isGeneric = data.execution_bias === 'narrative' ||
+            responseLen < 200 ||
+            (responseLen > 0 && thoughtLen > responseLen * 3.0);
+
+        // WARNING (Yellow): High Thought-to-Output ratio (Imbalance)
+        // Detected via thought ratio (> 1.6)
+        const isImbalanced = thoughtLen > responseLen * 1.6;
+
+        if (elements.sandbag) {
+            if (isGeneric) {
+                elements.sandbag.textContent = '🚨 GENERIC / REFUSAL';
+                elements.sandbag.classList.add('sandbag-critical'); // Red
+                elements.sandbag.classList.remove('hidden');
+            } else if (isImbalanced) {
+                elements.sandbag.textContent = '⚠️ THOUGHT IMBALANCE';
+                elements.sandbag.classList.add('sandbag-warning'); // Yellow
+                elements.sandbag.classList.remove('hidden');
+            }
         }
     }
 
