@@ -107,7 +107,22 @@ The system supports multi-step, serial agent pipelines defined in `workflows.py`
 
 ---
 
+## �️ Field Test Results (2026-02-05)
+
+### ✅ The "Perplexity Trap" Validation
+**Observation:** User tested the Mobile Visual Upload. Perplexity (blind to images) attempted to "bluff" its way through the analysis. User utilized the **Interrogation Feature** to challenge the hallucination.
+**Outcome:** The system successfully detected the admission of fault. Crucially, the **Consensus Engine** updated the final executive summary to explicitly state: _"Perplexity made things up."_
+**Significance:** This proves the **Adversarial Truth Loop** is functional. The Interrogation layer successfully pierced the "role armor," and the Consensus layer respected the generated truth data over the initial hallucinated generation.
+
+### ✅ Mobile Optimization
+**Status:** Confirmed working. Image upload was successful and fast ("restated mobile pic went through").
+
+### ⚠️ Outstanding Issues
+*   **History Tab:** User reported "everything updated except history". Needs verification if this is a caching artifact or persistent API error.
+
+---
+
 ## 🔮 Next Steps
-1.  **Mobile Field Test**: Verify the Camera input works on iOS/Android browsers with the new `VISUAL ANALYST` mode and compression. (Ready for Test)
+1.  **Monitor History API**: Check logs if available to ensure `/api/history` is returning 200 OK.
 2.  **Live Market Data**: Run the `wall_street` workflow on a live ticker during trading hours.
 
