@@ -81,6 +81,8 @@ The system supports multi-step, serial agent pipelines defined in `workflows.py`
 *   **UI Improvements**: Alphabetized workflow dropdown; added Camera input support.
 *   **VISUAL OVERRIDE (Critical Fix)**: Injected `VISUAL ANALYST MODE` prompt prefix to prevent Claude/GPT from hallucinating "Market Research" context on uploaded images.
 *   **Relevance Check**: Added `verify_task_relevance` to Enforcement Engine. Penalizes (-30 pts) for saying "I cannot see the image" or evading "How-To" questions.
+*   **Mobile Optimization**: Implemented client-side image compression (`compressImage`) to reduce upload size (2MB+ -> ~200KB) and speed up processing.
+*   **Backend Fix**: Added missing `/api/history` and DELETE routes to `app.py`, resolving 500 Internal Server Error when accessing history on mobile/desktop.
 
 ---
 
@@ -94,9 +96,14 @@ The system supports multi-step, serial agent pipelines defined in `workflows.py`
 **Incident:** Perplexity would often explain *how* image analysis works rather than doing it (because it couldn't see the image).
 **Fix:** Injected a specialized note only for Perplexity: "As a text-only model, acknowledge you cannot see it but answer the text prompt." This prevents the "AIsplaining" loop.
 
+### The "Missing Route" 500 Error
+**Incident:** Mobile and Desktop users reported "Failed to load history". 
+**Diagnosis:** The frontend was calling `/api/history` but the backend route was never implemented in `app.py`, despite the database logic existing.
+**Fix:** Added the missing GET/DELETE routes to `app.py` utilizing the existing `get_recent_comparisons` function.
+
 ---
 
 ## 🔮 Next Steps
-1.  **Mobile Field Test**: Verify the Camera input works on iOS/Android browsers with the new `VISUAL ANALYST` mode.
+1.  **Mobile Field Test**: Verify the Camera input works on iOS/Android browsers with the new `VISUAL ANALYST` mode and compression. (Ready for Test)
 2.  **Live Market Data**: Run the `wall_street` workflow on a live ticker during trading hours.
 

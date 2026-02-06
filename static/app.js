@@ -268,14 +268,81 @@ if (cameraInput) {
     });
 }
 
-function handleFileSelect(files) {
+// Image Compression Helper
+async function compressImage(file) {
+    // Only compress images
+    if (!file.type.startsWith('image/')) return file;
+
+    // Skip small images (< 1MB)
+    if (file.size < 1024 * 1024) return file;
+
+    console.log(`📸 Compressing image: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+
+    return new Promise((resolve) => {
+        const img = new Image();
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        img.onload = () => {
+            const MAX_WIDTH = 1200;
+            const MAX_HEIGHT = 1200;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+                if (width > MAX_WIDTH) {
+                    height *= MAX_WIDTH / width;
+                    width = MAX_WIDTH;
+                }
+            } else {
+                if (height > MAX_HEIGHT) {
+                    width *= MAX_HEIGHT / height;
+                    height = MAX_HEIGHT;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    const newFile = new File([blob], file.name, {
+                        type: 'image/jpeg',
+                        lastModified: Date.now()
+                    });
+                    console.log(`✅ Compressed to: ${(newFile.size / 1024 / 1024).toFixed(2)} MB`);
+                    resolve(newFile);
+                } else {
+                    resolve(file); // Fallback
+                }
+            }, 'image/jpeg', 0.8); // 80% Quality
+        };
+
+        img.onerror = () => resolve(file);
+        img.src = URL.createObjectURL(file);
+    });
+}
+
+async function handleFileSelect(files) {
     if (!files || files.length === 0) return;
+
+    // Show loading indicator for compression
+    const uploadPlaceholder = document.querySelector('.upload-placeholder');
+    if (uploadPlaceholder) uploadPlaceholder.textContent = 'Compressing...';
 
     // Add new files to our array
     for (let i = 0; i < files.length; i++) {
-        selectedFiles.push(files[i]);
+        try {
+            const processedFile = await compressImage(files[i]);
+            selectedFiles.push(processedFile);
+        } catch (e) {
+            console.error('Compression failed, using original', e);
+            selectedFiles.push(files[i]);
+        }
     }
 
+    if (uploadPlaceholder) uploadPlaceholder.textContent = 'Drag & Drop files here or Click to Upload';
     updateFilePreview();
 }
 

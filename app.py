@@ -1404,6 +1404,26 @@ def get_persona_drift_route():
 def dashboard():
     return render_template('dashboard.html')
 
+@app.route('/api/history', methods=['GET'])
+def get_history():
+    limit = request.args.get('limit', default=20, type=int)
+    try:
+        history = get_recent_comparisons(limit=limit)
+        # Convert rows to dicts if needed (database.py already initializes row_factory)
+        return jsonify(history)
+    except Exception as e:
+        print(f"History Fetch Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/history/<int:comparison_id>', methods=['DELETE'])
+def delete_history_item(comparison_id):
+    try:
+        delete_comparison(comparison_id)
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"History Delete Error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
 # Project Management Routes
 @app.route('/api/projects', methods=['GET'])
 def list_projects_route():
