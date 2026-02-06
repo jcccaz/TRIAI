@@ -1,4 +1,5 @@
 flask
+Flask-BasicAuth
 flask-cors
 openai
 anthropic
