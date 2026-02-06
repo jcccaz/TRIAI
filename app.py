@@ -29,6 +29,7 @@ from persona_synthesizer import analyze_persona_drift
 from visuals import visuals_bp, get_style_for_role, fabricate_and_persist_visual
 from deployment_platforms import PLATFORMS
 from enforcement import EnforcementEngine
+from feedback_analyzer import analyze_feedback_text
 
 app = Flask(__name__)
 # Basic Auth Configuration
@@ -1167,6 +1168,18 @@ def submit_feedback():
     if not data.get('query_category') and data.get('query_text'):
         data['query_category'] = classify_query(data['query_text'])
     
+    # Analyze Feedback Text if present
+    feedback_text = data.get('feedback_text', '').strip()
+    if feedback_text and len(feedback_text) > 5:
+        try:
+            print(f"DEBUG: Analyzing feedback text: {feedback_text[:50]}...")
+            analysis = analyze_feedback_text(feedback_text, data.get('rating', 3))
+            if analysis and analysis.get('tags'):
+                data['feedback_tags'] = ",".join(analysis['tags'])
+                print(f"DEBUG: Feedback tags generated: {data['feedback_tags']}")
+        except Exception as e:
+            print(f"Feedback Analysis failed: {e}")
+            
     success = save_feedback(data)
     return jsonify({"success": success})
 

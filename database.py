@@ -90,9 +90,10 @@ def init_database():
     ''')
 
     # Migration: Add granular feedback columns if they don't exist
-    for col in ['hallucinated', 'visual_mismatch', 'mandate_fail', 'cushioning_present']:
+    for col in ['hallucinated', 'visual_mismatch', 'mandate_fail', 'cushioning_present', 'feedback_tags']:
         try:
-            cursor.execute(f"ALTER TABLE query_feedback ADD COLUMN {col} BOOLEAN DEFAULT 0")
+            col_def = "TEXT" if col == 'feedback_tags' else "BOOLEAN DEFAULT 0"
+            cursor.execute(f"ALTER TABLE query_feedback ADD COLUMN {col} {col_def}")
         except sqlite3.OperationalError:
             pass
 
@@ -217,8 +218,8 @@ def save_feedback(data: Dict) -> bool:
                 gpt_role, claude_role, gemini_role, perplexity_role,
                 rating, too_generic, missing_details, wrong_roles, didnt_answer,
                 hallucinated, visual_mismatch, mandate_fail, cushioning_present,
-                feedback_text, query_text, query_category
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                feedback_text, query_text, query_category, feedback_tags
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             data.get('comparison_id'),
             data.get('user_id'),
@@ -237,7 +238,8 @@ def save_feedback(data: Dict) -> bool:
             data.get('cushioning_present', False),
             data.get('feedback_text'),
             data.get('query_text'),
-            data.get('query_category')
+            data.get('query_category'),
+            data.get('feedback_tags')
         ))
         
         conn.commit()
