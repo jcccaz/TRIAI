@@ -849,9 +849,10 @@ def send_login_alert(ip_address):
 @app.route('/')
 @basic_auth.required
 def index():
-    # Fire notification in background
+    # Fire notification synchronously (blocking) to guarantee delivery
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    threading.Thread(target=send_login_alert, args=(client_ip,)).start()
+    # We call it directly, no thread.
+    send_login_alert(client_ip)
     
     return render_template('index.html', roles=COUNCIL_ROLES, defaults=DEFAULT_ASSIGNMENTS)
 
