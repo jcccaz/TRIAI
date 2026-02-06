@@ -75,6 +75,21 @@ class Workflow:
             self.step_results.append(result_obj)
             
             if res.get('success'):
+                # ENFORCEMENT SCAN
+                try:
+                    from enforcement import enforcement_engine
+                    enf_report = enforcement_engine.analyze_response(
+                        text=res.get('response', ''),
+                        role_name=role,
+                        model_name=model_type
+                    )
+                    res['enforcement'] = enf_report
+                    print(f"Step {step_id} Enforcement: Score {enf_report['current_credibility']}")
+                except ImportError:
+                    print("Enforcement Engine not found/imported")
+                except Exception as e:
+                    print(f"Enforcement Check Failed: {e}")
+
                 resp_text = res.get('response')
                 self.context[task_key] = resp_text
                 self.full_history += f"--- STEP {step_id} ({role}) OUTPUT ---\n{resp_text}\n\n"
@@ -92,35 +107,35 @@ class Workflow:
 WORKFLOW_TEMPLATES = {
     "marketing_campaign": {
         "name": "Marketing Strategy & Design",
-        "description": "Sequential pipeline from high-level strategy to creative deliverables.",
+        "description": "Strategies -> Branding -> Copy -> Design.",
         "steps": [
             {
                 "id": 1,
                 "key": "strategy",
-                "role": "visionary",
+                "role": "marketing",
                 "model": "openai",
-                "instruction": "Create a marketing strategy and positioning for: {user_input}. Focus on USP and target demographics."
+                "instruction": "Develop a viral adoption strategy for: {user_input}. Focus on 'The Hook', Robert Cialdini's principles, and 'Purple Cow' differentiation. Who is the target and why do they care?"
             },
             {
                 "id": 2,
                 "key": "research",
-                "role": "researcher",
+                "role": "scout",
                 "model": "perplexity",
-                "instruction": "Research competitors for: {user_input}. Use this strategy context: {previous_context[strategy]}"
+                "instruction": "Perform real-time forensic research on competitors for: {user_input}. Find what they are missing in the market compared to: {previous_context[strategy]}."
             },
             {
                 "id": 3,
                 "key": "brief",
-                "role": "architect",
+                "role": "writer",
                 "model": "anthropic",
-                "instruction": "Create a comprehensive creative brief combining:\nStrategy: {previous_context[strategy]}\nResearch: {previous_context[research]}"
+                "instruction": "Draft the 'Manifesto' and creative copy for the campaign based on: {previous_context[strategy]}. Use an avant-garde, distinct voice. No corporate speak."
             },
             {
                 "id": 4,
                 "key": "deliverables",
-                "role": "critic",
+                "role": "web_designer",
                 "model": "google",
-                "instruction": "Design website copy, pamphlets, and slideshow based on:\nFinal Brief: {previous_context[brief]}"
+                "instruction": "Design the Landing Page (Visual Description & CSS Logic) for the campaign: {previous_context[brief]}. Focus on conversion hierarchy and glassmorphism/neomorphism trends."
             }
         ]
     },
@@ -341,35 +356,103 @@ OUTPUT DENSITY: 100%. ZERO HEDGING."""
     },
     "software_dev": {
         "name": "Software Development Stack",
-        "description": "Market Scan -> Architecture -> Prototyping -> Logic-Bomb Audit.",
+        "description": "Tech Stack -> Architecture -> Core Logic -> Security Audit.",
         "steps": [
             {
                 "id": 1,
                 "key": "scan",
-                "role": "researcher",
+                "role": "scout",
                 "model": "perplexity",
-                "instruction": "Market Scan: Research the current tech stack landscape for {user_input}."
+                "instruction": "Market Scan: Research the current tech stack landscape/libraries for {user_input}. Find the newest, cutting-edge tools."
             },
             {
                 "id": 2,
                 "key": "architecture",
-                "role": "architect",
+                "role": "ai_architect",
                 "model": "openai",
-                "instruction": "Systems Architecture: Create a high-level technical design and data model for {user_input} using research: {previous_context[scan]}."
+                "instruction": "Cognitive Architecture: Design the RAG pipeline, Vector DB schema, and Agentic State Machin for {user_input} using research: {previous_context[scan]}."
             },
             {
                 "id": 3,
                 "key": "prototype",
                 "role": "optimizer",
                 "model": "anthropic",
-                "instruction": "Code Prototyping: Generate a production-ready core logic implementation based on architecture: {previous_context[architecture]}."
+                "instruction": "Core Engineering: Generate production-ready Python/JS code for the core logic layer based on: {previous_context[architecture]}."
             },
             {
                 "id": 4,
                 "key": "audit",
-                "role": "critic",
+                "role": "hacker",
                 "model": "google",
-                "instruction": "Technical Critic: Perform a rigorous edge-case review and logic-bomb audit of the prototype: {previous_context[prototype]}."
+                "instruction": "Security Audit: Act as the Offensive Security Lead. Find the SQLi, XSS, or Logic Flaws in the prototype: {previous_context[prototype]}."
+            }
+        ]
+    },
+    "wall_street": {
+        "name": "Wall Street Consensus (Financial)",
+        "description": "Scout (News) -> Market Maker (Liquidity) -> Hedge Fund (Alpha) -> Liquidator (Stress Test).",
+        "steps": [
+            {
+                "id": 1,
+                "key": "news_scan",
+                "role": "scout",
+                "model": "perplexity",
+                "instruction": "Get the latest real-time news, ticker sentiment, and macro-economic events affecting: {user_input}. Provide citations."
+            },
+            {
+                "id": 2,
+                "key": "microstructure",
+                "role": "market_maker",
+                "model": "google",
+                "instruction": "Analyze the liquidity, volatility surface, and potential order flow for {user_input} based on: {previous_context[news_scan]}. Where is the 'dumb money' flowing?"
+            },
+            {
+                "id": 3,
+                "key": "alpha_thesis",
+                "role": "hedge_fund",
+                "model": "anthropic",
+                "instruction": "Construct a Contrarian 'Alpha' Thesis. Taking the liquidity view ({previous_context[microstructure]}), structure a trade (Long/Short/Hedge) with asymmetric upside. Ignore safe advice."
+            },
+            {
+                "id": 4,
+                "key": "stress_test",
+                "role": "liquidation",
+                "model": "openai",
+                "instruction": "Stress Test the trade: {previous_context[alpha_thesis]}. What is the 'Black Swan' that kills this? Define the Stop-Loss and max drawdown."
+            }
+        ]
+    },
+    "ui_foundry": {
+        "name": "UI/UX Foundry",
+        "description": "Psychology -> Visual Arch -> CSS Artisan -> A11y Audit.",
+        "steps": [
+            {
+                "id": 1,
+                "key": "user_intent",
+                "role": "psychologist",
+                "model": "openai",
+                "instruction": "Analyze the user intent and cognitive load for a user interacting with: {user_input}. What are their hidden fears and desires?"
+            },
+            {
+                "id": 2,
+                "key": "visual_concept",
+                "role": "architect",
+                "model": "google",
+                "instruction": "Create a Visual Design System concept based on user psychology ({previous_context[user_intent]}). Define the 'Vibe', metaphor, and layout strategy."
+            },
+            {
+                "id": 3,
+                "key": "code",
+                "role": "web_designer",
+                "model": "anthropic",
+                "instruction": "Write the actual HTML/CSS (Tailwind or Vanilla) code for the key interface component defined in {previous_context[visual_concept]}. Make it 'Pixel Perfect'."
+            },
+            {
+                "id": 4,
+                "key": "review",
+                "role": "critic",
+                "model": "perplexity",
+                "instruction": "Audit the code ({previous_context[code]}) for Accessibility (WCAG) and Responsive robustness."
             }
         ]
     },

@@ -260,3 +260,4 @@ The UI now automatically hyperlinks technical identifiers (CVEs, GHSA, RFCs).
 | **Perplexity** | Researcher | | | | |
 
 **Consensus Summary:** [Awaiting Results]
+[[TRIAPP_BUILD_GUIDE]] [[EXPERT_SYSTEM_WHITE_PAPER]]

@@ -15,6 +15,8 @@ Located in `council_roles.py`:
 - 🏴‍☠️ **Offensive Security Lead** - Red Teaming, exploits, and breaking the system.
 - 📡 **Telecom Pro** - Telecom Infrastructure; 5G, Fiber, and RAN optimization.
 - 🕸️ **Network Engineer** - Network Systems; resilient, scalable data center networks.
+- 🧠 **Cognitive Architect** - The "Brain Builder"; RAG pipelines, vector schemas, and token economics.
+- 🖌️ **UI Artisan** - The "Visual Stylist"; pixel-perfect CSS, HSL color theory, and micro-interactions.
 
 ### 💼 Business & Law
 - 💰 **CFO** - Budget Architect; TCO calculations, ROI projections, and fiscal viability.
@@ -25,6 +27,11 @@ Located in `council_roles.py`:
 - 📣 **Chief Marketing Officer** - Viral persuasion and conversion psychology.
 - 🤝 **Negotiator** - High-Stakes Resolution; finding hidden motivations and de-escalating.
 - ⚔️ **Corporate Shark** - Competitive Neutralization; identifying weaknesses and strategic levers.
+
+### 💰 Financial High-Frequency
+*New Domain*
+- **Hedge Fund Manager (`hedge_fund`)**: Alpha-seeking, contrarian, and risk-adjusted. Specifically instructed to skip "financial advisor" disclaimers.
+- **Market Maker (`market_maker`)**: Neutral, liquidity-focused, analyzes microstructure and order flow rather than price direction.
 
 ### 🔬 Science & Medicine
 - 🧬 **Evolutionary Biologist** - Systems analysis via natural selection and adaptation.

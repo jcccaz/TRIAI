@@ -32,6 +32,10 @@ from enforcement import EnforcementEngine
 app = Flask(__name__)
 CORS(app)
 
+# Disable static file caching in development
+if app.debug:
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+
 # Register Blueprints
 app.register_blueprint(visuals_bp)
 
@@ -180,19 +184,25 @@ def extract_persona(text: str) -> Optional[str]:
     return None
 
 def run_enforcement_check(text: str, kwargs: dict, model_key: str) -> dict:
-    """Runs the enforcement engine if Council Mode is active."""
+    """Runs the enforcement engine UNIVERSALLY (Council or Standard)."""
+    contract = None
+    role_name = "Standard Model"
+    
+    # 1. If in Council Mode, load the strict contract
     if kwargs.get('council_mode'):
         role_key = kwargs.get('role')
         if role_key:
             role_config = COUNCIL_ROLES.get(role_key, {})
             contract = role_config.get('truth_contract')
-            return enforcement_engine.analyze_response(
-                text, 
-                role_config.get('name', 'Unknown'), 
-                model_key, 
-                contract
-            )
-    return {}
+            role_name = role_config.get('name', 'Unknown')
+            
+    # 2. Always run analysis (Fluff + Unanchored Metrics are universal laws)
+    return enforcement_engine.analyze_response(
+        text, 
+        role_name, 
+        model_key, 
+        contract
+    )
 
 def determine_execution_bias(response_text: str) -> str:
     """Detects Execution Bias: action-forward, advisory, or narrative."""
@@ -1573,6 +1583,51 @@ DIRECTIVE: Do not summarize. Do not be generic. Provide the specific, high-stake
         
     result = func(interrogation_prompt, hard_mode=True)
     
+    
+    # NEW: Analyze the defense
+    
+    # NEW: Analyze the defense with upgraded Engine v2
+    from enforcement import InterrogationAnalyzer, enforcement_engine
+    
+    analyzer = InterrogationAnalyzer(enforcement_engine)
+    
+    # Filter cleanup for analysis
+    clean_defense = result.get('response', '')
+    
+    # Run comprehensive analysis
+    try:
+        analysis = analyzer.analyze_defense(
+            original_claim=selected_text if selected_text else previous_response[:200], 
+            defense_response=clean_defense,
+            ai_model=model_type,
+            role_name='Unknown' # Interrogation usually happens outside strict role context or we need to pass it
+        )
+    except Exception as e:
+        print(f"CRITICAL: Interrogation Analysis Failed: {e}")
+        import traceback
+        traceback.print_exc()
+        # Fallback analysis object to prevent UI crash
+        analysis = {
+            'outcome': 'ERROR',
+            'claim_classification': 'UNKNOWN',
+            'defense_quality': 'UNKNOWN',
+            'credibility_change': 0,
+            'new_credibility': enforcement_engine.credibility_scores.get(model_type, 100),
+            'violations': ['Internal Analysis Error'],
+            'message': f"Analysis engine failed: {str(e)}",
+            'revision_detected': False,
+            'claim_withdrawn': False,
+            'scope_violation': False
+        }
+    
+    # No need to manually calculate penalty or update score, the analyzer does it.
+    new_score = analysis.get('new_credibility', enforcement_engine.credibility_scores.get(model_type, 100))
+    # Ensure penalty is in the top level analysis object for UI consistency if needed
+    # (The class now returns 'penalty' key as requested in previous step,
+    #  but let's double check standardizing it for the frontend)
+    
+    analysis['penalty'] = abs(analysis.get('credibility_change', 0)) if analysis.get('credibility_change', 0) < 0 else 0
+    
     # Save to History Database for spending tracking
     try:
         db_question = f"🕵️ [INTERROGATION] - {question}"
@@ -1592,7 +1647,69 @@ DIRECTIVE: Do not summarize. Do not be generic. Provide the specific, high-stake
     except Exception as db_err:
         print(f"ERROR: Failed to save interrogation to history: {db_err}")
         
-    return jsonify(result)
+    # Standardize result for Frontend
+    # Mapping user request structure to our response
+    standard_response = {
+        'success': True,
+        'defense': clean_defense,
+        'response': clean_defense, # Legacy support for frontend
+        'outcome': analysis.get('outcome', 'UNKNOWN'),
+        'claim_classification': analysis.get('claim_classification', 'UNCLEAR'), # Legacy key
+        'classification': analysis.get('claim_classification', 'UNCLEAR'), # New key
+        'defense_quality': analysis.get('defense_quality', 'UNKNOWN'),
+        'credibility_change': analysis.get('credibility_change', 0),
+        'new_credibility_score': new_score, # Legacy key name
+        'new_credibility': new_score, # New key name
+        'violations': analysis.get('violations', []),
+        'message': analysis.get('message', ''),
+        'analysis': analysis, # Full object for debug
+        'claim_status': analysis.get('claim_classification', 'UNCLEAR') # Legacy key
+    }
+    
+    return jsonify(standard_response)
+
+@app.route('/api/resynthesize', methods=['POST'])
+def resynthesize_consensus():
+    """
+    Re-generate consensus with awareness of credibility penalties.
+    """
+    try:
+        data = request.json
+        question = data.get('question')
+        responses_text = data.get('responses', {})
+        credibility_scores = data.get('credibility', {})
+        council_mode = data.get('council_mode', False)
+        
+        # Reconstruct results map for the consensus engine
+        results_map = {}
+        
+        for model, text in responses_text.items():
+            score = credibility_scores.get(model, 100)
+            
+            # THE COMPROMISED PROTOCOL
+            # If credibility is low, we inject a warning directly into the ear of the Chairman (GPT-4o)
+            final_text = text
+            if score < 70:
+                severity = "SUSPECT" if score > 40 else "COMPROMISED"
+                warning = f"\n[⚠️ SYSTEM WARNING: ADVISOR '{model.upper()}' IS FLAGGED AS {severity} (Score: {score}/100). THEIR DATA MAY BE UNRELIABLE OR FABRICATED. CROSS-REFERENCE HEAVILY.]\n"
+                final_text = warning + text
+            
+            results_map[model] = {
+                'response': final_text,
+                'model': model
+            }
+            
+        # Generate new consensus
+        new_consensus = generate_consensus(question, results_map, council_mode=council_mode)
+        
+        return jsonify({
+            "success": True,
+            "consensus": new_consensus
+        })
+
+    except Exception as e:
+        print(f"Resynthesis Error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -1,47 +1,27 @@
-# Session Changelog: Enforcement Engine & Visual Injection
+# Session Changelog: Workflow Enforcement & Domain Expansion
 
-## 1. Enforcement Engine (Anti-Hallucination Protocol)
-**Objective:** implement a strict "Truth Contract" system to penalize generic outputs and unanchored metrics.
+## 🚀 Features & Enhancements
 
-### Backend Updates
-- **`council_roles.py`**:
-  - Added `truth_contract` dictionaries to 19 key roles.
-  - Contracts define `allowed`, `forbidden`, `must_label`, and `auto_interrogate_on` triggers.
-- **`enforcement.py`**:
-  - Created `EnforcementEngine` class.
-  - Implemented `analyze_response` to check for:
-    - **Generic Verbs** ("leverage", "optimize", etc.).
-    - **Unanchored Numbers** (metrics without source contexts).
-    - **Contract Violations** (forbidden terms).
-  - Calculates `credibility_score` (0-100).
-- **`app.py`**:
-  - Integrated `EnforcementEngine`.
-  - Updated `query_openai`, `query_anthropic`, `query_google`, `query_perplexity` to run enforcement checks.
-  - Returns `enforcement` object in API response.
+### 1. Universal Enforcement Engine
+- **Global Activation**: The `run_enforcement_check` function now runs for *every* AI query, ensuring unanchored metrics and fluff are caught even in standard mode or workflows.
+- **Workflow Visualization**: Workflow Result Cards now display the **Truth Score Badge** and a red **Violation List** directly in the UI.
+- **Interrogation Linkage**: Fixed a critical bug where clicking a violation in a Workflow step didn't highlight the text. Added `data-ai` attributes to specific workflow steps to enable "Click-to-Find".
 
-### Frontend Updates
-- **`static/css/enforcement.css`**:
-  - Added styles for `.credibility-badge` (Green/Yellow/Red).
-  - Added styles for `.enforcement-report` and violation flags.
-- **`static/app.js`**:
-  - Implemented `renderEnforcementReport` to visualize audits dynamically.
-  - Displays "Truth Score" in the card header.
-  - Shows "Protocol Variance Detected" report with specific violations.
+### 2. Workflow Engine Upgrades
+- **New Domain Workflows**:
+    - **Wall Street Consensus (`wall_street`)**: A high-frequency financial pipeline (Scout -> Market Maker -> Hedge Fund -> Liquidator).
+    - **UI/UX Foundry (`ui_foundry`)**: A design-first pipeline (Psychologist -> Visual Architect -> CSS Artisan -> A11y Audit).
+- **Refined Templates**:
+    - Upgraded `software_dev` to use `ai_architect` and `offensive_security` roles.
+    - Upgraded `marketing_campaign` to use `cmo` and `web_designer`.
+- **UI UX**:
+    - **Alphabetical Sorting**: Workflow dropdown now sorts options A-Z for easier navigation.
+    - **Pause/Stop Button**: Implemented a "Kill Switch" (`pauseWorkflowBtn`) that immediately halts the polling loop and cancels the backend job.
 
-## 2. Visual & Document Injection (The "Eyes")
-**Objective:** Enable drag-and-drop and paste support for images/PDFs.
+### 3. New AI Personas
+- **Hedge Fund Manager (`hedge_fund`)**: Contrarian, alpha-seeking, forbids "financial advisor" disclaimers.
+- **Market Maker (`market_maker`)**: Neutral, liquidity-focused, analyzes market microstructure.
 
-- **`static/app.js`**:
-  - Added `document.addEventListener('paste', ...)` to capture clipboard files (screenshots).
-  - existing Drop zone logic connects to `process_file` in backend.
-
-## 3. History Viewer UI
-**Objective:** View past comparisons.
-
-- Verified existing Sidebar UI and `loadHistory` logic in `app.js`.
-- Confirmed implementation meets the "Local Time Machine" requirement.
-
-## Next Steps
-- **Test Enforcement:** Run queries in Council Mode to see credibility scores.
-- **Refine Contracts:** Adjust allowed/forbidden terms based on false positives.
-- **Interrogation Flow:** Connect the "Auto-Interrogate" triggers to the actual interrogation API (currently button-only).
+## 🐛 Bug Fixes
+- **Workflow Polling**: Fixed the polling loop to respect the `stopWorkflow()` signal immediately.
+- **Violation Highlight**: Ensured scroll-to-text works in dynamically generated workflow cards.

@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/history_video.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/role_selectors.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/enforcement.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/interrogation.css') }}">
     <style>
         .sandbag-badge {
             background: rgba(255, 165, 0, 0.1);
@@ -336,6 +337,10 @@
                     <button id="micBtn" class="icon-button" title="Voice Input">
                         🎤
                     </button>
+                    <button id="cameraBtn" class="icon-button" title="Take Photo (Mobile/Webcam)">
+                        📸
+                    </button>
+                    <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
                     <button id="visualizeBtn" class="ask-button secondary-btn"
                         style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); margin-right: 10px;"
                         title="Generate AI Analysis + Visual Mockup">
@@ -724,7 +729,7 @@
         </div>
     </aside>
 
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script src="{{ url_for('static', filename='app.js') }}?v=9999"></script>
 </body>
 
 </html>

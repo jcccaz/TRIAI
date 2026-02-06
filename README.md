@@ -34,14 +34,26 @@ Automatically classifies responses as:
 - **Advisory**: Strategic recommendations
 - **Narrative**: Contextual analysis
 
-### 4. **Visual Fabrication Engine** 🎨
+### 4. **Universal Enforcement Engine** 👮
+The system now universally enforces truthfulness across all queries (Standard, Council, or Workflow modes):
+- **Truth Score Badge**: Every response gets a credibility score (0-100).
+- **Violation Auditing**: Detected "Fluff", "Unanchored Metrics", or "Generic Platitudes" are flagged in real-time.
+- **Interrogation Engine**: Click any flagged violation to instantly interrogate the AI about that specific claim.
+
+### 5. **Workflow Engine** ⚡
+Run complex, multi-step agentic pipelines that force models to collaborate:
+- **Wall Street Consensus**: Scout (News) -> Market Maker (Liquidity) -> Hedge Fund (Alpha) -> Liquidator (Risk).
+- **UI/UX Foundry**: Psychologist (Intent) -> Visual Architect (Vibe) -> UI Artisan (Code) -> Critic (A11y).
+- **Crisis Response**: Immediate Triage -> Fact Check -> PR Strategy -> Recovery Plan.
+
+### 6. **Visual Fabrication Engine** 🎨
 Generate visuals directly from AI responses:
 - Data visualizations (charts, graphs)
 - Knowledge graphs (relationships, flows)
 - Technical blueprints
 - Realistic mockups
 
-### 5. **Forensic Analysis** 🧠
+### 7. **Forensic Analysis** 🧠
 - Extract hidden `<thinking>` tags to see AI reasoning
 - Track "self-selected personas" when AI chooses its own expert identity
 - Measure response depth vs. thought process length

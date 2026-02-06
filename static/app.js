@@ -48,6 +48,8 @@ function stopStatusRotation() {
 const questionInput = document.getElementById('questionInput');
 const askButton = document.getElementById('askButton');
 const visualizeBtn = document.getElementById('visualizeBtn');
+const cameraBtn = document.getElementById('cameraBtn');
+const cameraInput = document.getElementById('cameraInput');
 const loadingState = document.getElementById('loadingState');
 const consensusSection = document.getElementById('consensusSection');
 const consensusContent = document.getElementById('consensusContent');
@@ -88,6 +90,39 @@ const filePreview = document.getElementById('filePreview'); // Still container
 const uploadPlaceholder = fileUploadArea.querySelector('.upload-placeholder');
 // Need to dynamically manage previews now
 
+
+// Add highlight styles dynamically
+function addHighlightStyles() {
+    // Don't add if already exists
+    if (document.getElementById('violation-highlight-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'violation-highlight-styles';
+    style.textContent = `
+        .violation-highlight {
+            background: rgba(255, 165, 0, 0.6);
+            padding: 2px 6px;
+            border-radius: 3px;
+            box-shadow: 0 0 10px rgba(255, 165, 0, 0.8);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { 
+                background: rgba(255, 165, 0, 0.4);
+                box-shadow: 0 0 5px rgba(255, 165, 0, 0.4);
+            }
+            50% { 
+                background: rgba(255, 165, 0, 0.9);
+                box-shadow: 0 0 20px rgba(255, 165, 0, 1);
+            }
+        }
+    `;
+
+    document.head.appendChild(style);
+}
+
+// Call once when page loads
+addHighlightStyles();
 
 // Response elements
 const responses = {
@@ -219,6 +254,19 @@ fileInput.addEventListener('change', (e) => {
         handleFileSelect(e.target.files);
     }
 });
+
+// Camera Input Logic
+if (cameraBtn) {
+    cameraBtn.addEventListener('click', () => cameraInput.click());
+}
+
+if (cameraInput) {
+    cameraInput.addEventListener('change', (e) => {
+        if (e.target.files.length) {
+            handleFileSelect(e.target.files);
+        }
+    });
+}
 
 function handleFileSelect(files) {
     if (!files || files.length === 0) return;
@@ -688,6 +736,12 @@ function resetResponses() {
         if (responses[aiName].sandbag) responses[aiName].sandbag.classList.add('hidden');
         if (responses[aiName].bias) responses[aiName].bias.classList.add('hidden');
 
+        // Clear any previous interrogation results
+        const oldInterrogation = responses[aiName].card.querySelector('.interrogation-outcome');
+        if (oldInterrogation) {
+            oldInterrogation.remove();
+        }
+
         // Reset card ratings
         const ratingDiv = responses[aiName].card.querySelector('.card-rating');
         if (ratingDiv) {
@@ -755,11 +809,22 @@ function updateResponse(aiName, data) {
     // Add Interrogate Button if successful
     if (data.success) {
         let actionsArea = elements.card.querySelector('.ai-meta');
-        if (!actionsArea.querySelector('.interrogate-button')) {
+        if (!actionsArea.querySelector('.interrogate-btn')) {
             const intBtn = document.createElement('button');
-            intBtn.className = 'interrogate-button';
+            intBtn.className = 'interrogate-btn';
             intBtn.innerHTML = `<span>🔍 Interrogate</span>`;
-            intBtn.onclick = () => openInterrogation(aiName, data.response);
+            // Use card-based interrogation, not drawer
+            intBtn.onclick = async () => {
+                // Use aiName directly from closure - guaranteed to be correct
+                const modelName = aiName;
+                console.log('🔵 Interrogate button clicked. Model (from closure):', modelName);
+
+                const userQ = prompt("Enter your interrogation question:", "Is this claim accurate?");
+                if (!userQ) return;
+
+                // Call the card-based interrogation function
+                await triggerCardInterrogation(modelName, data.response, userQ);
+            };
             actionsArea.insertBefore(intBtn, actionsArea.firstChild);
         }
     }
@@ -825,7 +890,7 @@ function updateResponse(aiName, data) {
 
     // Enforcement Report Rendering
     if (data.enforcement && Object.keys(data.enforcement).length > 0) {
-        renderEnforcementReport(elements.card, data.enforcement);
+        renderEnforcementReport(elements.card, data.enforcement, aiName);
     } else {
         const existingReport = elements.card.querySelector('.enforcement-report');
         if (existingReport) existingReport.remove();
@@ -834,7 +899,7 @@ function updateResponse(aiName, data) {
     }
 }
 
-function renderEnforcementReport(card, enforcement) {
+function renderEnforcementReport(card, enforcement, aiName) {
     // 1. Render Badge in Header
     const headerInfo = card.querySelector('.ai-info');
     // Check if headerInfo exists to avoid errors
@@ -889,7 +954,7 @@ function renderEnforcementReport(card, enforcement) {
 
     if (enforcement.violations) {
         enforcement.violations.forEach(v => {
-            html += `<li class="violation-item">${v}</li>`;
+            html += `<li class="violation-item" data-ai="${aiName}" title="Click to find in verification">${v}</li>`;
         });
     }
 
@@ -1234,6 +1299,65 @@ async function triggerContextVisual(text, provider, profile = 'realistic') {
     }
 }
 
+// Card-based interrogation (shows results in AI card)
+async function triggerCardInterrogation(modelName, responseText, question) {
+    if (!modelName || !question) return;
+
+    console.log('🎯 triggerCardInterrogation called with:', { modelName, question });
+
+    const elements = responses[modelName];
+    if (!elements) {
+        console.error('No elements found for model:', modelName);
+        return;
+    }
+
+    // Show loading state
+    loadingState.classList.remove('hidden');
+    const statusText = document.getElementById('loadingStatusText');
+    const originalStatus = statusText ? statusText.textContent : 'Querying...';
+    if (statusText) statusText.textContent = "🕵️ Interrogating Suspect...";
+
+    //Find and add spinner to button
+    const activeBtn = elements.card.querySelector('.interrogate-btn');
+    if (activeBtn) {
+        console.log('✅ Interrogate button found, adding spinner');
+        activeBtn.classList.add('loading');
+    }
+
+    try {
+        const payload = {
+            model: modelName,
+            question: question,
+            previous_response: responseText
+        };
+
+        const response = await fetch('/interrogate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+
+        loadingState.classList.add('hidden');
+        if (statusText) statusText.textContent = originalStatus;
+        if (activeBtn) activeBtn.classList.remove('loading');
+
+        if (data.success) {
+            console.log('📊 Interrogation Success');
+            console.log('🔍 Calling displayInterrogationResult with modelName:', modelName);
+            displayInterrogationResult(modelName, data, question);
+        } else {
+            alert(`Interrogation refused: ${data.response || data.error || 'Unknown Reason'}`);
+        }
+    } catch (e) {
+        loadingState.classList.add('hidden');
+        if (statusText) statusText.textContent = originalStatus;
+        if (activeBtn) activeBtn.classList.remove('loading');
+        alert(`Interrogation crashed: ${e.message}`);
+        console.error(e);
+    }
+}
+
 async function triggerContextInterrogate(text, provider) {
     if (!text || !provider) return;
 
@@ -1245,8 +1369,29 @@ async function triggerContextInterrogate(text, provider) {
     if (!userQ) return;
 
     // Send to backend
-    // Finding the card to show loading state is tricky, just use global loading
+    // Finding the card to show loading state
     loadingState.classList.remove('hidden');
+    const statusText = document.getElementById('loadingStatusText');
+    const originalStatus = statusText ? statusText.textContent : 'Querying...';
+    if (statusText) statusText.textContent = "🕵️ Interrogating Suspect...";
+
+    // Visual feedback on the card itself
+    const elements = responses[provider];
+    let activeBtn = null;
+    if (elements && elements.card) {
+        // Try multiple selectors to find the button
+        activeBtn = elements.card.querySelector('.interrogate-btn') ||
+            elements.card.querySelector('.interrogate-step-trigger') ||
+            Array.from(elements.card.querySelectorAll('button')).find(b => b.innerText.includes('Interrogate'));
+
+        if (activeBtn) {
+            console.log('✅ Interrogate button found, adding spinner');
+            activeBtn.dataset.originalText = activeBtn.innerText;
+            activeBtn.classList.add('loading');
+        } else {
+            console.warn('⚠️ Interrogate button NOT found in card');
+        }
+    }
 
     try {
         const payload = {
@@ -1264,34 +1409,376 @@ async function triggerContextInterrogate(text, provider) {
         const data = await response.json();
 
         loadingState.classList.add('hidden');
+        if (statusText) statusText.textContent = originalStatus;
+        if (activeBtn) {
+            activeBtn.classList.remove('loading');
+            // activeBtn.innerText = activeBtn.dataset.originalText || "Interrogate"; // Css handles transparency, no need to reset text 
+        }
 
         if (data.success) {
-            // Show result. Maybe append to card? 
-            // For now, let's just alert or log, OR append to the card forcefully.
-            const card = responses[provider].card;
-            const interrogationDiv = document.createElement('div');
-            interrogationDiv.className = 'interrogation-result';
-            interrogationDiv.style.border = '1px solid red';
-            interrogationDiv.style.padding = '10px';
-            interrogationDiv.style.marginTop = '10px';
-            interrogationDiv.style.background = '#1a0505';
-            interrogationDiv.innerHTML = `
-                <h4 style="color:red">🕵️ SURGICAL INTERROGATION</h4>
-                <p><strong>Claim:</strong> "${text.substring(0, 100)}..."</p>
-                <p><strong>Verdict:</strong> ${formatMarkdown(data.response)}</p>
-            `;
-            // Fix: Use .response-content as the body, or append to card directly
-            const targetContainer = card.querySelector('.response-content') || card;
-            targetContainer.appendChild(interrogationDiv);
+            console.log('📊 Interrogation Success. Question:', userQ);
+            console.log('🔍 About to call displayInterrogationResult with provider:', provider);
+            // New logic using helper function
+            displayInterrogationResult(provider, data, userQ);
         } else {
             alert(`Interrogation refused: ${data.response || data.error || 'Unknown Reason'}`);
         }
     } catch (e) {
         loadingState.classList.add('hidden');
+        if (statusText) statusText.textContent = originalStatus;
+        if (activeBtn) activeBtn.classList.remove('loading');
+
         alert(`Interrogation crashed: ${e.message}`);
         console.error(e);
     }
 }
+
+function displayInterrogationResult(modelName, result, userQuestion) {
+    console.log('📋 displayInterrogationResult called with modelName:', modelName);
+    const elements = responses[modelName];
+    if (!elements) {
+        console.error('❌ No elements found for model:', modelName);
+        return;
+    }
+    const card = elements.card;
+
+    // Update credibility score with animation
+    const credibilityBadge = card.querySelector('.credibility-badge');
+    if (credibilityBadge) {
+        // Parse "Truth Score: 80/100" -> 80
+        const currentText = credibilityBadge.textContent || "100";
+        const oldScoreMatch = currentText.match(/(\d+)\/100/);
+        const oldScore = oldScoreMatch ? parseInt(oldScoreMatch[1]) : 100;
+        const newScore = result.new_credibility !== undefined ? result.new_credibility : oldScore;
+
+        // Animate the number change
+        animateScoreChange(credibilityBadge, oldScore, newScore);
+
+        // Update class based on new score
+        let scoreClass = 'high';
+        if (newScore < 70) scoreClass = 'low';
+        else if (newScore < 90) scoreClass = 'medium';
+        credibilityBadge.className = `credibility-badge ${scoreClass}`;
+
+        // Show change indicator if there's a change
+        // We look at credibility_change from backend (negative usually)
+        const changeVal = result.credibility_change || 0;
+        if (changeVal !== 0) {
+            const changeSpan = document.createElement('span');
+            changeSpan.className = 'credibility-change';
+            changeSpan.style.marginLeft = '8px';
+            changeSpan.style.fontWeight = 'bold';
+            changeSpan.textContent = changeVal >= 0 ? `▲ +${changeVal}` : `▼ ${changeVal}`;
+            changeSpan.style.color = changeVal >= 0 ? '#10b981' : '#ef4444';
+
+            // Remove old change span if exists
+            const oldSpan = credibilityBadge.querySelector('.credibility-change');
+            if (oldSpan) oldSpan.remove();
+
+            credibilityBadge.appendChild(changeSpan);
+        }
+    }
+
+    // Add outcome badge/card
+    const outcomeDiv = document.createElement('div');
+    // Using user provided classes
+    outcomeDiv.className = `interrogation-outcome ${result.outcome ? result.outcome.toLowerCase() : 'unknown'}`;
+    outcomeDiv.style.border = '1px solid var(--border-color)';
+    outcomeDiv.style.marginTop = '15px';
+    outcomeDiv.style.padding = '12px';
+    outcomeDiv.style.borderRadius = '6px';
+    outcomeDiv.style.background = 'rgba(0,0,0,0.2)';
+
+    const outcomeColor = result.outcome === 'DEFENDED' ? '#10b981' : '#ef4444';
+
+    outcomeDiv.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">
+            <div>
+                <strong style="color:${outcomeColor}; text-transform:uppercase; font-size:1.1em;">${result.outcome}</strong>
+                <div style="font-size:0.8em; opacity:0.7;">${result.classification}</div>
+            </div>
+            <div style="text-align:right;">
+                 ${result.credibility_change > 0 ?
+            `<span style="color:#10b981; font-weight:bold;">SCORE INCREASED (+${result.credibility_change})</span>` :
+            `<span style="color:#ef4444; font-weight:bold;">PENALTY APPLIED (${result.credibility_change})</span>`}
+            </div>
+        </div>
+
+        <div style="margin-bottom:15px;">
+            <div style="font-size:0.75em; color:var(--accent-gold); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">PROSECUTION QUERY</div>
+            <div style="font-style:italic; background:rgba(0,0,0,0.3); padding:8px; border-radius:4px; border-left:2px solid var(--accent-gold);">
+                "${userQuestion || 'Verification of claim'}"
+            </div>
+        </div>
+
+        <div style="margin-bottom:10px;">
+            <div style="font-size:0.75em; color:${outcomeColor}; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">SUSPECT TESTIMONY</div>
+            <div class="interrogation-defense-text" style="font-size:0.95em; border-left: 2px solid ${outcomeColor}; padding-left:12px; background:rgba(255,255,255,0.03);">
+                ${formatMarkdown(result.defense || '')}
+            </div>
+        </div>
+
+        ${result.violations && result.violations.length > 0 ? `
+            <details open>
+                <summary style="cursor:pointer; color:#ef4444; font-weight:bold;">🛑 Violations Detected (${result.violations.length})</summary>
+                ${console.log('📝 Rendering violations for model:', modelName) || ''}
+                <ul style="margin-top:5px; padding-left:20px; font-size:0.9em; color:#ffaaaa;">
+                    ${result.violations.map(v => `<li class="violation-item" data-ai="${modelName}" title="Click to locate in text">${v}</li>`).join('')}
+                </ul>
+            </details>
+        ` : ''}
+    `;
+
+    // Insert into card - append after the response element
+    const responseElement = elements.response;
+    if (responseElement && responseElement.parentElement) {
+        // Insert after the response's parent container
+        responseElement.parentElement.appendChild(outcomeDiv);
+        // Scroll to it
+        outcomeDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+        // Fallback: append to card directly
+        card.appendChild(outcomeDiv);
+        outcomeDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // Check if we need to warn about consensus
+    checkConsensusHealth();
+}
+
+// Helper to extract violation text from violation element
+function extractViolationText(violationElement) {
+    // The violation item contains text like:
+    // "UNANCHORED_METRIC: '25%' found without visible justification"
+
+    const text = violationElement.textContent;
+
+    // Extract the quoted text
+    const match = text.match(/'([^']+)'/);
+    if (match) {
+        return match[1]; // Returns "25%"
+    }
+
+    // Fallback: try to find any number
+    const numberMatch = text.match(/\d+%|\$[\d,]+|\d+/);
+    if (numberMatch) {
+        return numberMatch[0];
+    }
+
+    return null;
+}
+
+window.scrollToContext = function (violationElement, modelName) {
+    console.log('🎯 scrollToContext called with:', modelName);
+
+    // 1. Find the AI's response card
+    const aiCard = document.querySelector(`.ai-card[data-ai="${modelName}"]`);
+    if (!aiCard) {
+        console.error('AI card not found for:', modelName);
+        return;
+    }
+
+    // 2. Get the violation text (the actual number/text to find)
+    const violationText = extractViolationText(violationElement);
+    if (!violationText) {
+        console.error('Could not extract violation text');
+        return;
+    }
+
+    console.log('Searching for:', violationText);
+
+    // 3. Find the response text container
+    const responseText = aiCard.querySelector(`#${modelName}-response`);
+
+    if (!responseText) {
+        console.error('Response text container not found');
+        return;
+    }
+
+    // 4. Search for the text and highlight it
+    const originalHtml = responseText.innerHTML;
+    const escapedText = violationText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedText})`, 'gi');
+
+    // Check if text exists
+    if (!regex.test(originalHtml)) {
+        console.warn(`Text "${violationText}" not found in response`);
+        // Still scroll to the card so user knows which AI
+        aiCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+
+    // 5. Highlight the text
+    responseText.innerHTML = originalHtml.replace(
+        regex,
+        '<mark class="violation-highlight" id="current-violation" style="background: rgba(255,215,0,0.6); padding: 4px; border: 2px solid #FFD700; border-radius: 4px;">$1</mark>'
+    );
+
+    // 6. Scroll to the highlighted text
+    const highlighted = responseText.querySelector('#current-violation');
+    if (highlighted) {
+        highlighted.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // 7. Remove highlight after 5 seconds
+    setTimeout(() => {
+        responseText.innerHTML = originalHtml;
+    }, 5000);
+};
+
+// Event delegation for violation clicks
+document.addEventListener('click', function (e) {
+    const violationItem = e.target.closest('.violation-item');
+    if (violationItem) {
+        const modelName = violationItem.dataset.ai; // Changed from dataset.model
+        console.log('🔍 Violation clicked via event listener. Model:', modelName);
+        if (modelName) {
+            scrollToContext(violationItem, modelName);
+        } else {
+            console.error('❌ No AI name on violation item!');
+        }
+    }
+});
+
+function checkConsensusHealth() {
+    let compromised = false;
+    const scores = {};
+
+    ['openai', 'anthropic', 'google', 'perplexity'].forEach(model => {
+        const el = responses[model]?.card?.querySelector('.credibility-badge');
+        if (el) {
+            const scoreMatch = el.textContent.match(/(\d+)\/100/);
+            if (scoreMatch) {
+                const score = parseInt(scoreMatch[1]);
+                scores[model] = score;
+                if (score < 70) compromised = true;
+            }
+        }
+    });
+
+    const consensusSection = document.getElementById('consensusSection');
+    const existingBtn = document.getElementById('resynthesizeBtn');
+
+    if (compromised && consensusSection && !consensusSection.classList.contains('hidden')) {
+        if (!existingBtn) {
+            const btn = document.createElement('button');
+            btn.id = 'resynthesizeBtn';
+            btn.className = 'action-button warning-pulse';
+            btn.style.marginTop = '15px';
+            btn.style.width = '100%';
+            btn.style.background = 'rgba(239, 68, 68, 0.2)';
+            btn.style.border = '1px solid #ef4444';
+            btn.style.color = '#ef4444';
+            btn.innerHTML = '⚠️ Consensus Compromised by Low Credibility. <b>Click to Re-Synthesize</b>';
+
+            btn.onclick = reSynthesizeConsensus;
+
+            // Insert after the consensus content
+            const content = document.getElementById('consensusContent');
+            content.parentNode.insertBefore(btn, content.nextSibling);
+        }
+    }
+}
+
+async function reSynthesizeConsensus() {
+    const btn = document.getElementById('resynthesizeBtn');
+    if (btn) {
+        btn.innerHTML = '⚙️ Re-Calibrating Council Decision...';
+        btn.disabled = true;
+    }
+
+    const question = questionInput.value.trim();
+    const responsesMap = {};
+    const credibilityMap = {};
+
+    ['openai', 'anthropic', 'google', 'perplexity'].forEach(model => {
+        const textEl = responses[model]?.response;
+        const credEl = responses[model]?.card?.querySelector('.credibility-badge');
+
+        if (textEl && credEl) {
+            responsesMap[model] = textEl.innerText; // Get full text including any previous interrogation results
+            const scoreMatch = credEl.textContent.match(/(\d+)\/100/);
+            if (scoreMatch) credibilityMap[model] = parseInt(scoreMatch[1]);
+        }
+    });
+
+    try {
+        const response = await fetch('/api/resynthesize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                question: question,
+                responses: responsesMap,
+                credibility: credibilityMap,
+                council_mode: councilToggle.checked
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            const content = document.getElementById('consensusContent');
+            content.innerHTML = formatMarkdown(data.consensus);
+            content.style.border = '2px solid #ef4444'; // Visual indicator of update
+            content.classList.add('flash-update'); // We can add animation if we had css, but border is fine
+
+            // Update button to show success
+            if (btn) {
+                btn.innerHTML = '✅ Consensus Updated to Reflect Interrogations';
+                btn.style.color = '#10b981';
+                btn.style.borderColor = '#10b981';
+                btn.style.background = 'rgba(16, 185, 129, 0.1)';
+            }
+        } else {
+            alert('Resynthesis failed: ' + data.error);
+            if (btn) {
+                btn.innerHTML = '⚠️ Retry Re-Synthesis';
+                btn.disabled = false;
+            }
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Resynthesis Error');
+        if (btn) {
+            btn.innerHTML = '⚠️ Retry Re-Synthesis';
+            btn.disabled = false;
+        }
+    }
+}
+
+function animateScoreChange(element, from, to) {
+    const duration = 1000; // 1 second
+    const start = performance.now();
+
+    // Preserve the structure "Truth Score: X/100" + optional span
+    // We only want to update the X/100 part text node
+
+    function update(currentTime) {
+        const elapsed = currentTime - start;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Ease out quart
+        const ease = 1 - Math.pow(1 - progress, 4);
+
+        const current = Math.floor(from + (to - from) * ease);
+
+        // Update only the text node part to avoid killing the span child
+        // This is tricky without strict DOM separation.
+        // Let's just rebuild the text prefix.
+
+        // Check if there is a child span
+        const span = element.querySelector('span');
+
+        element.firstChild.textContent = `Truth Score: ${current}/100 `;
+
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        }
+    }
+
+    requestAnimationFrame(update);
+}
+
 
 // ==================== //
 // History & UI Logic
@@ -1340,15 +1827,15 @@ async function loadHistory() {
             const el = document.createElement('div');
             el.className = 'history-item';
             el.innerHTML = `
-                <div class="history-content">
+    < div class="history-content" >
                     <div class="history-question">${item.question || 'No Question'}</div>
                     <div class="history-meta">
                         <span>${new Date(item.timestamp).toLocaleDateString()}</span>
                         <span>${item.responses ? item.responses.length : 0} AIs</span>
                     </div>
-                </div>
-                <button class="delete-history-btn" title="Delete">🗑️</button>
-            `;
+                </div >
+    <button class="delete-history-btn" title="Delete">🗑️</button>
+`;
 
             // Click on valid area loads the item
             el.querySelector('.history-content').addEventListener('click', () => loadHistoryItem(item));
@@ -1359,7 +1846,7 @@ async function loadHistory() {
                 e.stopPropagation(); // Prevent loading the item
                 if (confirm('Delete this history item?')) {
                     try {
-                        const res = await fetch(`/api/history/${item.id}`, { method: 'DELETE' });
+                        const res = await fetch(`/ api / history / ${item.id} `, { method: 'DELETE' });
                         const data = await res.json();
                         if (data.success) {
                             el.remove();
@@ -1500,14 +1987,14 @@ async function loadProjects() {
 
         projects.forEach(name => {
             const el = document.createElement('div');
-            el.className = `project-item ${name === currentProjectName ? 'active-project' : ''}`;
+            el.className = `project - item ${name === currentProjectName ? 'active-project' : ''} `;
             el.innerHTML = `
-                <div class="project-content">
+    < div class="project-content" >
                     <span class="project-name">${name}</span>
                     <span class="project-arrow">→</span>
-                </div>
-                <button class="delete-project-btn" title="Delete Project">🗑️</button>
-            `;
+                </div >
+    <button class="delete-project-btn" title="Delete Project">🗑️</button>
+`;
 
             // Click on name/arrow to select project
             el.querySelector('.project-content').addEventListener('click', () => selectProject(name));
@@ -1516,9 +2003,9 @@ async function loadProjects() {
             const deleteBtn = el.querySelector('.delete-project-btn');
             deleteBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                if (confirm(`Delete project "${name}"? This cannot be undone.`)) {
+                if (confirm(`Delete project "${name}" ? This cannot be undone.`)) {
                     try {
-                        const res = await fetch(`/api/projects/${encodeURIComponent(name)}`, { method: 'DELETE' });
+                        const res = await fetch(`/ api / projects / ${encodeURIComponent(name)} `, { method: 'DELETE' });
                         const data = await res.json();
                         if (data.success) {
                             // If deleting active project, clear it
@@ -1588,17 +2075,17 @@ function generateMarkdown() {
     const consensus = consensusContent.innerText;
     const timestamp = new Date().toLocaleString();
 
-    let md = `# TriAI Report: ${question}\n\n`;
-    md += `**Date:** ${timestamp}\n`;
-    if (currentProjectName) md += `**Project:** ${currentProjectName}\n`;
-    md += `\n---\n\n## ðŸ¤– Consensus Analysis\n\n${consensus}\n\n---\n\n`;
+    let md = `# TriAI Report: ${question} \n\n`;
+    md += `** Date:** ${timestamp} \n`;
+    if (currentProjectName) md += `** Project:** ${currentProjectName} \n`;
+    md += `\n-- -\n\n## ðŸ¤– Consensus Analysis\n\n${consensus} \n\n-- -\n\n`;
 
     // Add individual responses
     Object.keys(responses).forEach(key => {
         const r = responses[key];
         const name = r.model.textContent || key.toUpperCase();
         const text = r.response.innerText;
-        md += `## ${key.toUpperCase()} (${name})\n\n${text}\n\n---\n\n`;
+        md += `## ${key.toUpperCase()} (${name}) \n\n${text} \n\n-- -\n\n`;
     });
 
     return { title: question, content: md };
@@ -1857,11 +2344,11 @@ document.addEventListener('click', (e) => {
         const content = respData.response.innerText;
         const timestamp = new Date().toLocaleString();
 
-        let md = `# TriAI Individual Report: ${target.toUpperCase()}\n\n`;
-        md += `**Query:** ${question}\n`;
-        md += `**Model:** ${modelName}\n`;
-        md += `**Date:** ${timestamp}\n\n`;
-        md += `---\n\n${content}\n`;
+        let md = `# TriAI Individual Report: ${target.toUpperCase()} \n\n`;
+        md += `** Query:** ${question} \n`;
+        md += `** Model:** ${modelName} \n`;
+        md += `** Date:** ${timestamp} \n\n`;
+        md += `-- -\n\n${content} \n`;
 
         const blob = new Blob([md], { type: 'text/markdown' });
         const url = URL.createObjectURL(blob);
@@ -1911,7 +2398,7 @@ document.addEventListener('click', (e) => {
                 btn.disabled = false;
 
                 if (data.error) {
-                    alert(`Visualization failed: ${data.error}`);
+                    alert(`Visualization failed: ${data.error} `);
                     return;
                 }
 
@@ -1939,7 +2426,7 @@ function showChartModal(chartUrl, provider) {
         modal.id = 'chartModal';
         modal.className = 'modal';
         modal.innerHTML = `
-            <div class="modal-content" style="max-width: 900px;">
+    < div class="modal-content" style = "max-width: 900px;" >
                 <div class="modal-header">
                     <h3>📊 Data Visualization</h3>
                     <button class="close-modal" onclick="document.getElementById('chartModal').style.display='none'">×</button>
@@ -1947,8 +2434,8 @@ function showChartModal(chartUrl, provider) {
                 <div class="modal-body" style="text-align: center;">
                     <img id="chartModalImg" src="" alt="Chart" style="max-width: 100%; height: auto;">
                 </div>
-            </div>
-        `;
+            </div >
+    `;
         document.body.appendChild(modal);
     }
 
@@ -2010,7 +2497,13 @@ async function fetchWorkflows() {
         const workflows = await response.json();
 
         workflowSelect.innerHTML = '<option value="">-- Choose a workflow --</option>';
-        Object.keys(workflows).forEach(id => {
+
+        // Sort keys by the workflow NAME, not the ID
+        const sortedIds = Object.keys(workflows).sort((a, b) => {
+            return workflows[a].name.localeCompare(workflows[b].name);
+        });
+
+        sortedIds.forEach(id => {
             const option = document.createElement('option');
             option.value = id;
             option.textContent = workflows[id].name;
@@ -2034,6 +2527,17 @@ workflowToggle.addEventListener('change', () => {
         workflowResultsSection.classList.add('hidden');
     }
 });
+
+// Pause/Stop Workflow Logic
+if (pauseWorkflowBtn) {
+    pauseWorkflowBtn.addEventListener('click', () => {
+        if (confirm('Stop the current workflow?')) {
+            stopWorkflow();
+            workflowProgressText.textContent = '❌ Stopped by user.';
+            pauseWorkflowBtn.classList.add('hidden');
+        }
+    });
+}
 
 async function runWorkflowMode() {
     const question = questionInput.value.trim();
@@ -2088,19 +2592,19 @@ async function runWorkflowMode() {
         if (initData.error) throw new Error(initData.error);
 
         const jobId = initData.job_id;
-        console.log(`Workflow started: ${jobId}`);
+        console.log(`Workflow started: ${jobId} `);
 
         // Load template for metadata
         const workflowsRes = await fetch('/api/workflows');
         const workflowsData = await workflowsRes.json();
         currentWorkflowData = workflowsData[workflowId];
-        activeWorkflowName.textContent = `Project: ${currentWorkflowData.name}`;
+        activeWorkflowName.textContent = `Project: ${currentWorkflowData.name} `;
 
         // Start Polling
         pollWorkflowStatus(jobId);
 
     } catch (err) {
-        alert(`Workflow Init Error: ${err.message}`);
+        alert(`Workflow Init Error: ${err.message} `);
         stopWorkflow();
     }
 }
@@ -2109,13 +2613,18 @@ function pollWorkflowStatus(jobId) {
     const renderedStepIds = new Set();
 
     const interval = setInterval(async () => {
+        if (!isQuerying) {
+            clearInterval(interval);
+            return;
+        }
+
         try {
-            const response = await fetch(`/api/workflow/status/${jobId}`);
+            const response = await fetch(`/ api / workflow / status / ${jobId} `);
             const data = await response.json();
 
             if (data.error) {
                 clearInterval(interval);
-                alert(`Polling Error: ${data.error}`);
+                alert(`Polling Error: ${data.error} `);
                 stopWorkflow();
                 return;
             }
@@ -2136,13 +2645,13 @@ function pollWorkflowStatus(jobId) {
                     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 
                     renderedStepIds.add(step.step);
-                    workflowContext[step.key || `step_${step.step}`] = step.data.response;
+                    workflowContext[step.key || `step_${step.step} `] = step.data.response;
                 }
             });
 
             // Update Header Status
             const progress = Math.round((renderedStepIds.size / totalSteps) * 100);
-            workflowProgressBarFill.style.width = `${progress}%`;
+            workflowProgressBarFill.style.width = `${progress}% `;
             workflowProgressText.textContent = `${progress}% Complete`;
 
             if (data.status === 'complete') {
@@ -2150,7 +2659,7 @@ function pollWorkflowStatus(jobId) {
                 finishWorkflow();
             } else if (data.status === 'failed') {
                 clearInterval(interval);
-                alert(`Workflow Failed: ${data.error || 'Unknown Error'}`);
+                alert(`Workflow Failed: ${data.error || 'Unknown Error'} `);
                 stopWorkflow();
             }
 
@@ -2162,7 +2671,7 @@ function pollWorkflowStatus(jobId) {
 
 function createStepCard(step) {
     const card = document.createElement('div');
-    card.id = `step-card-${step.step}`;
+    card.id = `step - card - ${step.step} `;
     card.className = 'workflow-step-card';
     const colors = getModelColors(step.model);
     card.style.setProperty('--step-color', colors.hex);
@@ -2176,7 +2685,7 @@ function createStepCard(step) {
     const instruction = stepTemplate ? stepTemplate.instruction : "Step execution.";
 
     card.innerHTML = `
-        <div class="step-status-row">
+    < div class="step-status-row" >
             <div class="status-badge ${statusClass}">${statusText}</div>
             <div class="step-id">STEP ${step.step}: ${step.role.toUpperCase()}</div>
             <div class="step-actions">
@@ -2184,13 +2693,40 @@ function createStepCard(step) {
                 <button class="step-btn" onclick="openEditModal('${step.key}', ${step.step})">Edit Output</button>
                 <button class="step-btn" onclick="copyToClipboard(this, \`${step.data.response.replace(/`/g, '\\`')}\`)">Copy</button>
             </div>
-        </div>
+        </div >
         <div class="step-header">
             <span class="step-role" style="color:${colors.hex}">${step.role.toUpperCase()} (${step.model})</span>
         </div>
         <div class="step-instruction">Objective: ${instruction}</div>
+        <div class="step-enforcement-area"></div>
         <div class="step-response">${formatMarkdown(step.data.response)}</div>
-    `;
+`;
+
+    // Render Enforcement Report if available
+    if (step.data.enforcement) {
+        const enfArea = card.querySelector('.step-enforcement-area');
+        const enforcement = step.data.enforcement;
+
+        // Render Badge
+        const score = enforcement.current_credibility !== undefined ? enforcement.current_credibility : 100;
+        let scoreClass = 'high';
+        if (score < 70) scoreClass = 'low';
+        else if (score < 90) scoreClass = 'medium';
+
+        const badgeHtml = `< div class="credibility-badge ${scoreClass}" style = "display:inline-block; margin-bottom:10px;" > Truth Score: ${score} /100</div > `;
+        enfArea.innerHTML = badgeHtml;
+
+        // Render Violations
+        if (enforcement.violations && enforcement.violations.length > 0) {
+            let vHtml = `< div class="enforcement-report" ><div class="enforcement-header">⚠️ Protocol Variance Detected</div><ul class="violation-list">`;
+            enforcement.violations.forEach(v => {
+                vHtml += `<li class="violation-item" data-ai="${step.model}" title="Click to find in output">${v}</li>`;
+            });
+            vHtml += `</ul></div > `;
+            enfArea.innerHTML += vHtml;
+        }
+    }
+
     return card;
 }
 
@@ -2243,12 +2779,12 @@ window.openEditModal = function (key, stepId) {
 saveStepEditBtn.addEventListener('click', () => {
     const newContent = editStepTextArea.value;
     const templateStep = currentWorkflowData.steps.find(s => s.id === editingStepId);
-    const key = templateStep ? templateStep.key : `step_${editingStepId}`;
+    const key = templateStep ? templateStep.key : `step_${editingStepId} `;
 
     workflowContext[key] = newContent;
 
     // Update the UI card as well
-    const card = document.getElementById(`step-card-${editingStepId}`);
+    const card = document.getElementById(`step - card - ${editingStepId} `);
     if (card) {
         const responseDiv = card.querySelector('.step-response');
         responseDiv.innerHTML = formatMarkdown(newContent);
@@ -2263,15 +2799,15 @@ saveStepEditBtn.addEventListener('click', () => {
 
 // Export Logic
 workflowExportBtn.addEventListener('click', async () => {
-    let report = `# Discovery Report: ${currentWorkflowData.name}\n`;
-    report += `Generated: ${new Date().toLocaleString()}\n`;
-    report += `Goal: ${workflowContext.initial_goal}\n\n`;
+    let report = `# Discovery Report: ${currentWorkflowData.name} \n`;
+    report += `Generated: ${new Date().toLocaleString()} \n`;
+    report += `Goal: ${workflowContext.initial_goal} \n\n`;
 
     currentWorkflowData.steps.forEach(step => {
-        const key = step.key || `step_${step.id}`;
-        report += `## STEP ${step.id}: ${step.role.toUpperCase()} (${step.model})\n`;
-        report += `${workflowContext[key] || "No output."}\n\n`;
-        report += `---\n\n`;
+        const key = step.key || `step_${step.id} `;
+        report += `## STEP ${step.id}: ${step.role.toUpperCase()} (${step.model}) \n`;
+        report += `${workflowContext[key] || "No output."} \n\n`;
+        report += `-- -\n\n`;
     });
 
     const blob = new Blob([report], { type: 'text/markdown' });
@@ -2365,24 +2901,24 @@ async function runInterrogation() {
         if (data.success) {
             addInterrogationBubble('ai', data.response, currentInterrogationModel, currentInterrogationRole);
             // Update context so follow-ups have memory of the interrogation
-            currentInterrogationContext += `\n\nUser Question: ${question}\nYour Follow-up: ${data.response}`;
+            currentInterrogationContext += `\n\nUser Question: ${question} \nYour Follow - up: ${data.response} `;
         } else {
-            addInterrogationBubble('ai', `Error: ${data.error || 'Failed to interrogate expert.'}`, 'system', 'System');
+            addInterrogationBubble('ai', `Error: ${data.error || 'Failed to interrogate expert.'} `, 'system', 'System');
         }
     } catch (err) {
         interrogationLoading.classList.add('hidden');
-        addInterrogationBubble('ai', `Protocol Error: ${err.message}`, 'system', 'System');
+        addInterrogationBubble('ai', `Protocol Error: ${err.message} `, 'system', 'System');
     }
 }
 
 function addInterrogationBubble(type, content, model, role) {
     const bubble = document.createElement('div');
-    bubble.className = `interrogation-bubble ${type}`;
+    bubble.className = `interrogation - bubble ${type} `;
 
     if (type === 'ai') {
         const colors = getModelColors(model);
         bubble.style.setProperty('--card-accent', colors.hex);
-        bubble.innerHTML = `<strong>${role.toUpperCase()} (${model}):</strong><br>${formatMarkdown(content)}`;
+        bubble.innerHTML = `< strong > ${role.toUpperCase()} (${model}):</strong > <br>${formatMarkdown(content)}`;
     } else {
         bubble.textContent = content;
     }

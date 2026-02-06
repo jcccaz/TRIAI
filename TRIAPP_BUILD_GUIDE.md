@@ -2083,3 +2083,4 @@ This TriApp (QuadApp) project demonstrates:
 
 *For questions or issues, check TROUBLESHOOTING.md or consult the API documentation.*
 >>>>>>> 6added3 (Initial commit: TriApp multi-AI comparison tool with GPT-5.2, Claude 4.5 Sonnet, Gemini 3.0, and Perplexity Pro support)
+[[TRIAI_USER_MANUAL]] [[ENHANCEMENTS_DONE]]

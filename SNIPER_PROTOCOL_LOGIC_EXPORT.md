@@ -72,3 +72,4 @@ def determine_execution_bias(response_text: str) -> str:
 *   **The Breakthrough:** Implementation of "Self-Selecting Personas" which triggered the "Thorne" entity in Gemini.
 *   **The Sniper Protocol:** Added to force the AI to kill its "balanced list" habit and commit to a single high-leverage move.
 *   **The Result:** Quantification of the LECR metric—showing exactly how much intelligence is hidden behind safety filters.
+[[TRIAPP_BUILD_GUIDE]] [[TriAI infographic]] 
