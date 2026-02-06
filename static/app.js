@@ -1940,10 +1940,21 @@ document.addEventListener('click', (e) => {
 
 async function loadHistory() {
     try {
+        historyList.innerHTML = '<div class="loading-text">Loading history...</div>';
         const response = await fetch('/api/history?limit=20');
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || `Server Error ${response.status}`);
+        }
+
         const historyData = await response.json();
 
         historyList.innerHTML = '';
+
+        if (!Array.isArray(historyData)) {
+            throw new Error("Received invalid data format from server");
+        }
 
         if (historyData.length === 0) {
             historyList.innerHTML = '<div style="padding:1rem; color:var(--text-muted); text-align:center;">No history found.</div>';
@@ -1953,16 +1964,22 @@ async function loadHistory() {
         historyData.forEach(item => {
             const el = document.createElement('div');
             el.className = 'history-item';
+
+            // Format date nicely
+            const date = new Date(item.timestamp).toLocaleString(undefined, {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+
             el.innerHTML = `
-    < div class="history-content" >
-                    <div class="history-question">${item.question || 'No Question'}</div>
+                <div class="history-content">
+                    <div class="history-question">${item.question || 'Untitled Query'}</div>
                     <div class="history-meta">
-                        <span>${new Date(item.timestamp).toLocaleDateString()}</span>
+                        <span>${date}</span>
                         <span>${item.responses ? item.responses.length : 0} AIs</span>
                     </div>
-                </div >
-    <button class="delete-history-btn" title="Delete">🗑️</button>
-`;
+                </div>
+                <button class="delete-history-btn" title="Delete">🗑️</button>
+            `;
 
             // Click on valid area loads the item
             el.querySelector('.history-content').addEventListener('click', () => loadHistoryItem(item));
@@ -1973,15 +1990,15 @@ async function loadHistory() {
                 e.stopPropagation(); // Prevent loading the item
                 if (confirm('Delete this history item?')) {
                     try {
-                        const res = await fetch(`/ api / history / ${item.id} `, { method: 'DELETE' });
+                        const res = await fetch(`/api/history/${item.id}`, { method: 'DELETE' });
                         const data = await res.json();
                         if (data.success) {
                             el.remove();
                         } else {
-                            alert('Error deleting: ' + data.error);
+                            alert('Error deleting: ' + (data.error || 'Unknown error'));
                         }
                     } catch (err) {
-                        alert('Delete failed');
+                        alert('Delete failed: ' + err.message);
                     }
                 }
             });
@@ -1991,7 +2008,10 @@ async function loadHistory() {
 
     } catch (error) {
         console.error('Failed to load history:', error);
-        historyList.innerHTML = '<div style="color:red; padding:1rem;">Failed to load history</div>';
+        historyList.innerHTML = `<div style="color:var(--status-error); padding:1rem; font-size:0.9em;">
+            <strong>Error loading history:</strong><br>${error.message}
+            <br><button onclick="loadHistory()" style="margin-top:10px; padding:4px 8px; cursor:pointer;">Retry</button>
+        </div>`;
     }
 }
 
