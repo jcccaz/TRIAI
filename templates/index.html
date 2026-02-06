@@ -341,6 +341,10 @@
                         📸
                     </button>
                     <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
+                    <button id="clearDeckBtn" class="icon-button" title="Clear Deck (Reset All)"
+                        style="background: rgba(255, 0, 0, 0.2); color: #ff6b6b; border: 1px solid rgba(255, 0, 0, 0.3);">
+                        🗑️
+                    </button>
                     <button id="visualizeBtn" class="ask-button secondary-btn"
                         style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); margin-right: 10px;"
                         title="Generate AI Analysis + Visual Mockup">
@@ -729,7 +733,7 @@
         </div>
     </aside>
 
-    <script src="{{ url_for('static', filename='app.js') }}?v=9999"></script>
+    <script src="{{ url_for('static', filename='app.js') }}?v=10000"></script>
 </body>
 
 </html>

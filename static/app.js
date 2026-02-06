@@ -401,6 +401,59 @@ document.querySelectorAll('.model-toggle').forEach(btn => {
     });
 });
 
+// Clear Deck Logic (Reset All)
+const clearDeckBtn = document.getElementById('clearDeckBtn');
+if (clearDeckBtn) {
+    clearDeckBtn.addEventListener('click', () => {
+        // 1. Clear Input
+        if (questionInput) questionInput.value = '';
+
+        // 2. Reset Consensus
+        if (consensusSection) consensusSection.classList.add('hidden');
+        if (consensusContent) consensusContent.innerHTML = 'Loading analysis...';
+
+        // 3. Reset AI Cards (Response text & Status)
+        ['openai', 'anthropic', 'google', 'perplexity'].forEach(ai => {
+            const responseDiv = document.getElementById(`${ai}-response`);
+            const statusDiv = document.getElementById(`${ai}-status`);
+            const thoughtsDiv = document.getElementById(`${ai}-thought`);
+
+            // Text Reset
+            if (responseDiv) responseDiv.innerHTML = 'Waiting for response...';
+            if (statusDiv) statusDiv.innerHTML = '';
+
+            // Hide Thoughts
+            if (thoughtsDiv) thoughtsDiv.classList.add('hidden');
+
+            // Remove Violation/Sandbag Badges
+            document.getElementById(`${ai}-sandbag`)?.classList.add('hidden');
+            document.getElementById(`${ai}-bias`)?.classList.add('hidden');
+
+            // REMOVE DYNAMIC VIOLATIONS (The Red Boxes)
+            // They are usually appended to the .ai-response container or .ai-card
+            const card = document.querySelector(`.ai-card[data-ai="${ai}"]`);
+            if (card) {
+                // Remove specific enforcement elements
+                card.querySelectorAll('.violation-report').forEach(el => el.remove());
+                card.querySelectorAll('.enforcement-report').forEach(el => el.remove());
+                card.querySelectorAll('.penalty-box').forEach(el => el.remove());
+                card.querySelectorAll('.interrogation-overlay').forEach(el => el.remove());
+
+                // Clear any inline styles relating to warnings
+                card.style.border = '';
+                card.style.boxShadow = '';
+            }
+        });
+
+        // 4. Hide Loading State
+        if (loadingState) loadingState.classList.add('hidden');
+        stopStatusRotation();
+
+        console.log('Deck cleared: Violations removed.');
+    });
+}
+
+
 // Recommendation Listeners
 document.getElementById('useRecommendedBtn').addEventListener('click', applyRecommendation);
 document.getElementById('customizeRolesBtn').addEventListener('click', () => {
@@ -969,7 +1022,6 @@ function updateResponse(aiName, data) {
 function renderEnforcementReport(card, enforcement, aiName) {
     // 1. Render Badge in Header
     const headerInfo = card.querySelector('.ai-info');
-    // Check if headerInfo exists to avoid errors
     if (!headerInfo) return;
 
     let badge = card.querySelector('.credibility-badge');
@@ -989,15 +1041,13 @@ function renderEnforcementReport(card, enforcement, aiName) {
     badge.textContent = `Truth Score: ${score}/100`;
 
     // 2. Render Report Body
-    // Location: After thought container, before response
-    const thoughtContainer = card.querySelector('.thought-container');
     const responseDiv = card.querySelector('.ai-response');
 
     let reportDiv = card.querySelector('.enforcement-report');
     if (!reportDiv) {
         reportDiv = document.createElement('div');
         reportDiv.className = 'enforcement-report';
-        // Insert after thought container or before response
+        // Insert before response
         if (responseDiv) card.insertBefore(reportDiv, responseDiv);
         else card.appendChild(reportDiv);
     }
@@ -1016,7 +1066,11 @@ function renderEnforcementReport(card, enforcement, aiName) {
     // Violation/Warning List
     reportDiv.className = 'enforcement-report'; // reset
 
-    let html = `<div class="enforcement-header">⚠️ Protocol Variance Detected</div>`;
+    // CLICKABLE HEADER LINK
+    let html = `<div class="enforcement-header clickable-header" onclick="scrollToFirstViolation(this, '${aiName}')" title="Jump to first violation evidence" style="cursor: pointer; display: flex; justify-content: space-between;">
+                    <span>⚠️ Protocol Variance Detected</span>
+                    <span style="opacity: 0.6; font-size: 0.9em;">🔗</span>
+                </div>`;
     html += `<ul class="violation-list">`;
 
     if (enforcement.violations) {
@@ -1033,7 +1087,13 @@ function renderEnforcementReport(card, enforcement, aiName) {
 
     html += `</ul>`;
     reportDiv.innerHTML = html;
+
+    // 3. INJECT INLINE BADGES (The new feature)
+    if (enforcement.violations) {
+        injectInlineBadges(card, enforcement.violations, aiName);
+    }
 }
+
 
 function handleCitationToggle() {
     const isChecked = citationToggle.checked;
@@ -2993,3 +3053,100 @@ function addInterrogationBubble(type, content, model, role) {
     interrogationHistory.appendChild(bubble);
     interrogationHistory.scrollTop = interrogationHistory.scrollHeight;
 }
+
+// ==================== //
+// 🚀 New Features: Clickable Header & Badges //
+// ==================== //
+
+// 1. Scroll Clickable Header
+window.scrollToFirstViolation = function (headerElement, modelName) {
+    const reportDiv = headerElement.closest('.enforcement-report');
+    if (!reportDiv) return;
+
+    // Find first violation item
+    const firstViolation = reportDiv.querySelector('.violation-item');
+    if (firstViolation) {
+        // Visual feedback on header
+        headerElement.style.opacity = '0.5';
+        setTimeout(() => headerElement.style.opacity = '1', 200);
+
+        // Call existing context locator
+        if (window.scrollToContext) {
+            window.scrollToContext(firstViolation, modelName);
+        }
+    }
+};
+
+// 2. Inject Badges
+window.injectInlineBadges = function (card, violations, modelName) {
+    if (!violations || violations.length === 0) return;
+
+    // Target the response text
+    // .response-text covers normal cards, .ai-response covers raw
+    const targetDiv = card.querySelector('.response-text') || document.getElementById(`${modelName}-response`);
+
+    if (!targetDiv) return;
+
+    let html = targetDiv.innerHTML;
+    let modified = false;
+
+    violations.forEach(v => {
+        // Parse format: "TYPE: 'quoted text'"
+        // E.g. UNANCHORED_METRIC: '25%' found...
+        const match = v.match(/^([A-Z_]+):\s*'([^']+)'/);
+
+        if (match) {
+            const type = match[1];
+            const textToFind = match[2];
+
+            // Skip duplicates
+            if (html.includes(`data-violation="${type}"`) && html.includes(textToFind)) return;
+
+            const escaped = textToFind.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(${escaped})`, '');
+
+            // Badge Style: Tiny, red, high-signal
+            const badgeHtml = `<span class="violation-badge" 
+                                     data-violation="${type}" 
+                                     onclick="event.stopPropagation(); triggerCardInterrogation('${modelName}', document.getElementById('${modelName}-response').innerText, 'Explain this ${type} violation')" 
+                                     title="${v}"
+                                     style="
+                                        font-size: 0.65em; 
+                                        vertical-align: middle;
+                                        margin-left: 4px; 
+                                        padding: 2px 4px; 
+                                        border-radius: 4px; 
+                                        background: rgba(220, 38, 38, 0.2); 
+                                        color: #fca5a5; 
+                                        border: 1px solid rgba(220, 38, 38, 0.6); 
+                                        cursor: pointer;
+                                        display: inline-flex;
+                                        align-items: center;
+                                        font-family: 'JetBrains Mono', monospace;
+                                        font-weight: bold;
+                                        letter-spacing: 0.5px;
+                                        transition: all 0.2s;
+                                        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                                     "
+                                     onmouseover="this.style.background='rgba(220, 38, 38, 0.4)'; this.style.transform='scale(1.05)'"
+                                     onmouseout="this.style.background='rgba(220, 38, 38, 0.2)'; this.style.transform='scale(1)'"
+                                     >
+                                     ${type}
+                               </span>`;
+
+            if (regex.test(html)) {
+                // Wrap text + add badge
+                // Note: we use previousElementSibling in onclick, so we need a wrapper or sibling
+                // Using a span for the text makes it targetable
+                html = html.replace(regex, `<span class="flagged-content" style="background: rgba(220, 38, 38, 0.1); border-bottom: 2px dotted #ef4444; color: inherit;">$1</span>${badgeHtml}`);
+                modified = true;
+            }
+        }
+    });
+
+    if (modified) {
+        targetDiv.innerHTML = html;
+        console.log(`✅ Injected inline badges for ${modelName}`);
+    }
+};
+

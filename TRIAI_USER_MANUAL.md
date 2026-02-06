@@ -33,7 +33,7 @@ TriAI is deployed on a secure private cloud.
 
 TriAI isn't just about "chatting." You can assign **Expert Roles** to each AI to force them to think like professionals.
 
-**New Business Suite Roles:**
+**New Business Suite Roles:** (See full list in [ROLES_REFERENCE.md](ROLES_REFERENCE.md))
 *   **🤝 Sales Engineer:** Uses MEDDIC logic to handle objections and close deals.
 *   **⚖️ General Counsel:** Reviews contracts, IP strategy, and corporate liability.
 *   **📱 Social Media Manager:** Writes viral hooks for LinkedIn/X without the "AI fluff."

@@ -122,7 +122,38 @@ The system supports multi-step, serial agent pipelines defined in `workflows.py`
 
 ---
 
-## 🔮 Next Steps
+## 🏛️ Council Intelligence Upgrade (v2.0)
+We have significantly expanded the specific domain expertise of the Council Roles to cover "Real World" business needs.
+
+**New Roles:**
+*   **Social Media Manager:** Optimizes for viral engagement (LinkedIn/X hooks).
+*   **Sales Engineer:** Uses MEDDIC/Challenger Sale logic to unblock deals and handle objections.
+*   **Prompt Architect:** A meta-tool for generating high-fidelity system prompts for other AIs.
+
+**Upgraded Roles:**
+*   **Telecom Pro:** Now focuses on specific vendor provisioning (Ciena, Fujitsu, Cisco) and circuit turn-up.
+*   **General Counsel:** (Formerly Jurist) Focus on Contracts, IP, and Corporate Governance.
+*   **Master Storyteller:** (Formerly Avant-Garde) Strict "Anti-Slop" rules to banish generic AI prose.
+
+---
+
+## 🔐 Security & Monitoring (v1.0)
+**Deployed at 11:00 AM**
+*   **Basic Auth:** Implemented a credential gate (`admin` / `triai2026`) to protect the app from unauthorized public access and bots.
+*   **Access Monitoring:** Integrated **Ntfy.sh** to send real-time push notifications to the admin's phone whenever a login occurs.
+    *   *Status:* Confirmed trigger at 11:10 AM.
+
+## 📚 Documentation
+*   **User Manual Updated:** Rewritten for Executive audience. Added "Learning Engine" (Scoring) and "Council 2.0" (Business Roles) sections. Removed generic 'localhost' instructions.
+
+---
+
+## 🏁 Session Baseline
+*   **Current State:** Production Ready.
+*   **Milestone:** Executive Demo Delivered (Docs + Secure Link shared).
+*   **Monitoring Status:** V2 Active (Synchronous/Blocking to guarantee delivery).
+
+
 1.  **Monitor History API**: Check logs if available to ensure `/api/history` is returning 200 OK.
 2.  **Live Market Data**: Run the `wall_street` workflow on a live ticker during trading hours.
 
