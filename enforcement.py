@@ -32,7 +32,7 @@ class EnforcementEngine:
             "confidence", "probability", "approx", "historic", "case study"
         }
 
-    def analyze_response(self, text: str, role_name: str, model_name: str, contract: Dict[str, Any] = None) -> Dict[str, Any]:
+    def analyze_response(self, text: str, role_name: str, model_name: str, contract: Dict[str, Any] = None, user_query: str = "", has_image: bool = False) -> Dict[str, Any]:
         """
         Analyzes a single AI response for reliability violations.
         Returns a dict containing violations, scores, and updated credibility.
@@ -108,6 +108,12 @@ class EnforcementEngine:
              if "roi" not in lower_text and "tco" not in lower_text:
                  warnings.append("ROLE_ADHERENCE: Missing financial primitives (ROI/TCO).")
 
+        # 5. Task Relevance Check (The "Evasion" Filter)
+        evasion_result = self.verify_task_relevance(user_query, text, has_image)
+        if evasion_result:
+            violations.append(f"{evasion_result['violation']}: {evasion_result['reason']}")
+            score_penalty += abs(evasion_result['penalty'])
+
         # Update Score
         current_score = self.credibility_scores.get(model_name, 100)
         new_score = max(0, current_score - score_penalty)
@@ -138,6 +144,42 @@ class EnforcementEngine:
 
     def get_credibility_report(self):
         return self.credibility_scores
+
+    def verify_task_relevance(self, question: str, response: str, has_image: bool) -> Optional[Dict]:
+        """
+        Penalize responses that don't address the actual question or evade image tasks.
+        """
+        lower_response = response.lower()
+        lower_question = question.lower()
+
+        # 1. Image Evasion Check
+        # If user uploaded image, AI must not say "I cannot see"
+        if has_image:
+            evasion_phrases = [
+                "cannot view", "cannot see", "unable to view", "upload the image",
+                "text-based", "language model", "description of the image"
+            ]
+            if any(phrase in lower_response for phrase in evasion_phrases):
+                # Exception: unless they are explaining *what* they see
+                if "i see" not in lower_response and "appears to be" not in lower_response:
+                    return {
+                        'violation': 'TASK_EVASION',
+                        'penalty': -30,
+                        'reason': 'AI claimed inability to view image or asked for description.'
+                    }
+
+        # 2. "How-To" Actionability Check
+        # If user asked "How to...", response must have steps
+        if "how to" in lower_question or "guide" in lower_question:
+            # Check for numbered lists (1., 2.) or bullet points
+            if not re.search(r'(\d+\.|- |\* )', response):
+                return {
+                    'violation': 'INSUFFICIENT_ACTIONABILITY',
+                    'penalty': -20,
+                    'reason': 'User asked for a Guide/How-To, but response lacks structured steps.'
+                }
+        
+        return None
 
 class InterrogationAnalyzer:
     """Analyzes interrogation defense responses and updates credibility."""

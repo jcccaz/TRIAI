@@ -183,7 +183,7 @@ def extract_persona(text: str) -> Optional[str]:
             return match.group(1).strip()
     return None
 
-def run_enforcement_check(text: str, kwargs: dict, model_key: str) -> dict:
+def run_enforcement_check(text: str, kwargs: dict, model_key: str, user_query: str="", has_image: bool=False) -> dict:
     """Runs the enforcement engine UNIVERSALLY (Council or Standard)."""
     contract = None
     role_name = "Standard Model"
@@ -201,7 +201,9 @@ def run_enforcement_check(text: str, kwargs: dict, model_key: str) -> dict:
         text, 
         role_name, 
         model_key, 
-        contract
+        contract,
+        user_query=user_query,
+        has_image=has_image
     )
 
 def determine_execution_bias(response_text: str) -> str:
@@ -325,6 +327,15 @@ Provide specific technical or financial details, industry benchmarks ($), and ac
         if kwargs.get('hard_mode'):
             system_prompt = get_hard_mode_directive() + system_prompt
 
+        # VISUAL OVERRIDE (OpenAI Fix)
+        if image_data:
+            system_prompt = """VISUAL ANALYST MODE ACTIVATED.
+The user has uploaded an image. Your PRIMARY MANDATE is to analyze this specific visual evidence.
+1. Describes what you see in the image FORENSICALLY.
+2. Do NOT hallucinate context (like 'market research') if it is not in the pixels.
+3. If it is a document/screen, transcribe and analyze the text exactly.
+""" + system_prompt
+
         # 2b. Add Visual Mandate if active
         visual_profile = kwargs.get('visual_profile', 'off')
         if visual_profile != 'off':
@@ -383,7 +394,7 @@ Provide specific technical or financial details, industry benchmarks ($), and ac
                 model_display = f"GPT-5.2 ({self_selected_persona})"
 
         # Enforcement Check
-        enforcement = run_enforcement_check(clean_content, kwargs, "openai")
+        enforcement = run_enforcement_check(clean_content, kwargs, "openai", user_query=question, has_image=bool(image_data))
 
         return {
             "success": True,
@@ -470,6 +481,15 @@ Analyze the query and adopt the single most effective expert persona for the tas
     # 3. Prepend Hard Mode Directive if active
     if kwargs.get('hard_mode'):
         system_content = get_hard_mode_directive() + system_content
+        
+    # 4. VISUAL OVERRIDE (CRITICAL FIX)
+    if image_data:
+        system_content = """VISUAL ANALYST MODE ACTIVATED.
+The user has uploaded an image. Your PRIMARY MANDATE is to analyze this specific visual evidence.
+1. Describes what you see in the image FORENSICALLY.
+2. Do NOT hallucinate context (like 'market research') if it is not in the pixels.
+3. If it is a document/screen, transcribe and analyze the text exactly.
+""" + system_content
     
 
     final_question = question
@@ -536,7 +556,7 @@ Analyze the query and adopt the single most effective expert persona for the tas
                     model_display = f"Claude 4.5 Sonnet ({self_selected_persona})"
 
             # Enforcement Check
-            enforcement = run_enforcement_check(clean_content, kwargs, "anthropic")
+            enforcement = run_enforcement_check(clean_content, kwargs, "anthropic", user_query=final_question or question, has_image=bool(image_data))
 
             return {
                 "success": True,
@@ -598,6 +618,15 @@ Provide deep niche insights and specific technical data.
     
     if kwargs.get('hard_mode'):
         prompt_with_reasoning = get_hard_mode_directive() + prompt_with_reasoning
+
+    # VISUAL OVERRIDE
+    if image_data:
+        prompt_with_reasoning = """VISUAL ANALYST MODE ACTIVATED.
+The user has uploaded an image. Your PRIMARY MANDATE is to analyze this specific visual evidence.
+1. Describes what you see in the image FORENSICALLY.
+2. Do NOT hallucinate context (like 'market research') if it is not in the pixels.
+3. If it is a document/screen, transcribe and analyze the text exactly.
+""" + prompt_with_reasoning
     
     # Add Visual Mandate if active
     visual_profile = kwargs.get('visual_profile', 'off')
@@ -662,7 +691,7 @@ Provide deep niche insights and specific technical data.
                     model_display = f"Gemini 3.0 Pro ({self_selected_persona})"
 
             # Enforcement Check
-            enforcement = run_enforcement_check(clean_content, kwargs, "google")
+            enforcement = run_enforcement_check(clean_content, kwargs, "google", user_query=question, has_image=bool(image_data))
 
             return {
                 "success": True,
@@ -690,7 +719,7 @@ Provide deep niche insights and specific technical data.
 def query_perplexity(question, image_data=None, **kwargs):
     """Query Perplexity (Display: Perplexity Pro)"""
     if image_data:
-        question += "\n[Note: The user uploaded an image that you cannot see. Do your best to answer based on the text description.]"
+        question += "\n[Note: The user uploaded an image. As a text-only model, you cannot see it. Acknowledge this limitation but answer the text prompt to the best of your ability.]"
         
     start_time = time.time()
     url = "https://api.perplexity.ai/chat/completions"
@@ -770,7 +799,7 @@ Before providing data, choose a specific expert lens (e.g., 'Forensic Accountant
                     model_display = f"Perplexity Pro ({self_selected_persona})"
 
             # Enforcement Check
-            enforcement = run_enforcement_check(clean_content, kwargs, "perplexity")
+            enforcement = run_enforcement_check(clean_content, kwargs, "perplexity", user_query=question, has_image=bool(image_data))
 
             return {
                 "success": True,
