@@ -419,7 +419,10 @@ if (clearDeckBtn) {
             const thoughtsDiv = document.getElementById(`${ai}-thought`);
 
             // Text Reset
-            if (responseDiv) responseDiv.innerHTML = 'Waiting for response...';
+            if (responseDiv) {
+                // Clear content completely, don't show "Waiting" yet
+                responseDiv.innerHTML = '<span style="opacity:0.5; font-style:italic;">Ready to deploy...</span>';
+            }
             if (statusDiv) statusDiv.innerHTML = '';
 
             // Hide Thoughts
@@ -429,7 +432,7 @@ if (clearDeckBtn) {
             document.getElementById(`${ai}-sandbag`)?.classList.add('hidden');
             document.getElementById(`${ai}-bias`)?.classList.add('hidden');
 
-            // REMOVE DYNAMIC VIOLATIONS (The Red Boxes)
+            // REMOVE DYNAMIC VIOLATIONS (The Red Boxes) & INTERROGATION OUTCOMES
             // They are usually appended to the .ai-response container or .ai-card
             const card = document.querySelector(`.ai-card[data-ai="${ai}"]`);
             if (card) {
@@ -438,6 +441,15 @@ if (clearDeckBtn) {
                 card.querySelectorAll('.enforcement-report').forEach(el => el.remove());
                 card.querySelectorAll('.penalty-box').forEach(el => el.remove());
                 card.querySelectorAll('.interrogation-overlay').forEach(el => el.remove());
+                card.querySelectorAll('.interrogation-outcome').forEach(el => el.remove()); // Added this
+                card.querySelectorAll('.violation-badge').forEach(el => el.remove()); // Added this just in case they are outside response text
+
+                // Reset credibility badge
+                const credBadge = card.querySelector('.credibility-badge');
+                if (credBadge) {
+                    credBadge.className = 'credibility-badge high';
+                    credBadge.innerHTML = 'Truth Score: 100/100'; // Reset score
+                }
 
                 // Clear any inline styles relating to warnings
                 card.style.border = '';
