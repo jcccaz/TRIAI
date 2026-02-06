@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
+from flask_basicauth import BasicAuth
 from typing import Tuple, List, Optional
 import os
 import time
@@ -30,6 +31,11 @@ from deployment_platforms import PLATFORMS
 from enforcement import EnforcementEngine
 
 app = Flask(__name__)
+# Basic Auth Configuration
+app.config['BASIC_AUTH_USERNAME'] = os.getenv('AUTH_USER', 'admin')
+app.config['BASIC_AUTH_PASSWORD'] = os.getenv('AUTH_PASS', 'triai2026')
+basic_auth = BasicAuth(app)
+
 CORS(app)
 
 # Disable static file caching in development
@@ -824,8 +830,29 @@ Before providing data, choose a specific expert lens (e.g., 'Forensic Accountant
         "model": "Perplexity Pro"
     }
 
+def send_login_alert(ip_address):
+    """Send push notification via Ntfy.sh"""
+    try:
+        requests.post(
+            "https://ntfy.sh/triai_monitor_secure_2026",
+            data=f"🚀 User accessed TriAI from {ip_address}",
+            headers={
+                "Title": "TriAI Login Alert",
+                "Priority": "default",
+                "Tags": "warning,login"
+            },
+            timeout=2
+        )
+    except Exception as e:
+        print(f"Notification failed: {e}")
+
 @app.route('/')
+@basic_auth.required
 def index():
+    # Fire notification in background
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    threading.Thread(target=send_login_alert, args=(client_ip,)).start()
+    
     return render_template('index.html', roles=COUNCIL_ROLES, defaults=DEFAULT_ASSIGNMENTS)
 
 def generate_consensus(question, results, podcast_mode=False, council_mode=False):
@@ -1389,6 +1416,7 @@ def get_persona_drift_route():
     return jsonify(analyze_persona_drift())
 
 @app.route('/dashboard')
+@basic_auth.required
 def dashboard():
     return render_template('dashboard.html')
 
