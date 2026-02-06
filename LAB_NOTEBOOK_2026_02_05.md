@@ -101,6 +101,10 @@ The system supports multi-step, serial agent pipelines defined in `workflows.py`
 **Diagnosis:** The frontend was calling `/api/history` but the backend route was never implemented in `app.py`, despite the database logic existing.
 **Fix:** Added the missing GET/DELETE routes to `app.py` utilizing the existing `get_recent_comparisons` function.
 
+### The "Values & Logic" Conflict
+**Incident:** During implementation of the history fix, I accidentally created a duplicate `/api/history` route because I missed the existing (but possibly buggy) one.
+**Fix:** Removed the original, simpler definition (around line 1120) and kept the robust new implementation (line 1408) which supports pagination (`limit`).
+
 ---
 
 ## 🔮 Next Steps

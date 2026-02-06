@@ -1116,19 +1116,7 @@ def ask_all_ais():
     })
 
 # Routes for history/stats etc
-@app.route('/api/history', methods=['GET'])
-def get_history():
-    comparisons = get_recent_comparisons()
-    # Convert Row objects to dicts
-    return jsonify([dict(c) for c in comparisons])
-
-@app.route('/api/history/<int:comparison_id>', methods=['DELETE'])
-def delete_history_item(comparison_id):
-    try:
-        delete_comparison(comparison_id)
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+# (History routes moved to line 1408)
 
 @app.route('/api/saved', methods=['GET'])
 def get_saved(): return jsonify(get_saved_comparisons())
