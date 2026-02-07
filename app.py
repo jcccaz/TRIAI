@@ -1263,16 +1263,26 @@ def visualize_data():
         target_text = selected_text if selected_text and len(selected_text) > 10 else response_text
         visual_profile = data.get('visual_profile', 'realistic')
         
-        # --- 1. MERMAID PATH (Charts, Graphs) ---
-        if visual_profile in ['data-viz', 'knowledge-graph']:
-            from visuals import generate_mermaid_viz
-            mermaid_syntax = generate_mermaid_viz(target_text[:4000], profile=visual_profile)
+        # --- 1. MATPLOTLIB PATH (Accurate Charts & Blueprints) ---
+        if visual_profile in ['data-viz', 'knowledge-graph', 'blueprint', 'chart']:
+            from visuals import fabricate_and_persist_visual
             
-            if mermaid_syntax:
-                return jsonify({"mermaid_syntax": mermaid_syntax})
+            # Use the target text (selection or full) as the concept
+            concept = target_text[:4000]
+            
+            # Map provider to a role hint if possible (e.g. OpenAI -> Analytical)
+            role_hint = 'analyst' 
+            
+            image_url = fabricate_and_persist_visual(concept, role=role_hint, profile=visual_profile)
+            
+            if image_url and not image_url.startswith("Error:"):
+                return jsonify({"chart_url": image_url})
             else:
-                # STRICT BREAK: Do NOT fallback to image generation for charts
-                return jsonify({"error": "Could not extract chart data from this text. Try asking for a table specifically."}), 400
+                # Capture the specific error from visuals.py if available, else generic
+                error_msg = image_url if image_url and image_url.startswith("Error:") else "Chart generation failed. Could not extract valid data."
+                return jsonify({
+                    "error": error_msg
+                }), 400
 
         # --- 2. IMAGE PATH (Art, Blueprint, Realistic) ---
         else:

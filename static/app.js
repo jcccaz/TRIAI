@@ -2571,13 +2571,31 @@ document.addEventListener('click', (e) => {
             return;
         }
 
+        // DYNAMICALY GET SELECTED VISUAL PROFILE
+        // Map 'openai' -> 'visualOpenAI', 'anthropic' -> 'visualAnthropic'
+        const providerKey = target.toLowerCase();
+        // Capitalize first letter for ID construction
+        const dropdownId = 'visual' + providerKey.charAt(0).toUpperCase() + providerKey.slice(1);
+        const profileSelect = document.getElementById(dropdownId);
+
+        // Default to 'realistic' if not found, otherwise use selected value
+        const selectedProfile = profileSelect ? profileSelect.value : 'realistic';
+
+        console.log(`🎨 Requesting visualization for ${target} with profile: ${selectedProfile}`);
+
+        // Capture highlighted text (if any)
+        const selection = window.getSelection().toString();
+        const textPayload = selection && selection.length > 5 ? selection : null;
+
         // Send visualization request to backend
         fetch('/visualize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 comparison_id: comparisonId,
-                provider: target
+                provider: target,
+                visual_profile: selectedProfile,
+                selected_text: textPayload
             })
         })
             .then(response => response.json())
