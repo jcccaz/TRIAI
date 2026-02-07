@@ -2,16 +2,26 @@ from google import genai
 import os
 import json
 from typing import List, Dict
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Reuse the key from environment
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
-client = genai.Client(api_key=GOOGLE_API_KEY)
+if not GOOGLE_API_KEY:
+    print("WARNING: GOOGLE_API_KEY missing in feedback_analyzer.py. Feedback analysis will fail.")
+    client = None
+else:
+    client = genai.Client(api_key=GOOGLE_API_KEY)
 
 def analyze_feedback_text(feedback_text: str, rating: int) -> Dict[str, any]:
     """
     Uses Gemini Flash to analyze free-text feedback and extract structured signals.
     Returns: { "tags": ["TAG_1", "TAG_2"], "sentiment": "positive"|"negative"|"mixed" }
     """
+    if not client:
+        return {"tags": [], "sentiment": "neutral"} # Graceful fallback if no key
+        
     if not feedback_text or len(feedback_text.strip()) < 5:
         return {"tags": [], "sentiment": "neutral"}
 
@@ -41,6 +51,9 @@ def analyze_feedback_text(feedback_text: str, rating: int) -> Dict[str, any]:
     """
     
     try:
+        if not client:
+             return {"tags": [], "sentiment": "neutral"}
+
         response = client.models.generate_content(
             model='gemini-2.0-flash', 
             contents=prompt,
