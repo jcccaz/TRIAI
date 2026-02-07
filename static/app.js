@@ -3137,40 +3137,32 @@ window.injectInlineBadges = function (card, violations, modelName) {
             const escaped = textToFind.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const regex = new RegExp(`(${escaped})`, '');
 
-            // Badge Style: Tiny, red, high-signal
-            const badgeHtml = `<span class="violation-badge" 
-                                     data-violation="${type}" 
-                                     onclick="event.stopPropagation(); triggerCardInterrogation('${modelName}', document.getElementById('${modelName}-response').innerText, 'Explain this ${type} violation')" 
+            // Badge Style: Subtle highlight with small inline tag
+            const badgeHtml = `<span class="violation-badge"
+                                     data-violation="${type}"
+                                     onclick="event.stopPropagation(); triggerCardInterrogation('${modelName}', document.getElementById('${modelName}-response').innerText, 'Explain this ${type} violation')"
                                      title="${v}"
                                      style="
-                                        font-size: 0.65em; 
-                                        vertical-align: middle;
-                                        margin-left: 4px; 
-                                        padding: 2px 4px; 
-                                        border-radius: 4px; 
-                                        background: rgba(220, 38, 38, 0.2); 
-                                        color: #fca5a5; 
-                                        border: 1px solid rgba(220, 38, 38, 0.6); 
+                                        font-size: 0.6em;
+                                        vertical-align: super;
+                                        margin-left: 2px;
+                                        padding: 1px 3px;
+                                        border-radius: 3px;
+                                        background: transparent;
+                                        color: #ff8888;
                                         cursor: pointer;
-                                        display: inline-flex;
-                                        align-items: center;
                                         font-family: 'JetBrains Mono', monospace;
-                                        font-weight: bold;
-                                        letter-spacing: 0.5px;
-                                        transition: all 0.2s;
-                                        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                                        font-weight: 600;
+                                        opacity: 0.7;
+                                        transition: opacity 0.2s;
                                      "
-                                     onmouseover="this.style.background='rgba(220, 38, 38, 0.4)'; this.style.transform='scale(1.05)'"
-                                     onmouseout="this.style.background='rgba(220, 38, 38, 0.2)'; this.style.transform='scale(1)'"
-                                     >
-                                     ${type}
-                               </span>`;
+                                     onmouseover="this.style.opacity='1'"
+                                     onmouseout="this.style.opacity='0.7'"
+                                     >⚠</span>`;
 
             if (regex.test(html)) {
-                // Wrap text + add badge
-                // Note: we use previousElementSibling in onclick, so we need a wrapper or sibling
-                // Using a span for the text makes it targetable
-                html = html.replace(regex, `<span class="flagged-content" style="background: rgba(220, 38, 38, 0.1); border-bottom: 2px dotted #ef4444; color: inherit;">$1</span>${badgeHtml}`);
+                // Wrap text with subtle highlight - no heavy borders, just a gentle background tint
+                html = html.replace(regex, `<span class="flagged-content" style="background: linear-gradient(to bottom, transparent 60%, rgba(255, 200, 100, 0.35) 60%); color: inherit; padding: 0 1px;">$1</span>${badgeHtml}`);
                 modified = true;
             }
         }

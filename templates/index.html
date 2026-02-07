@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/role_selectors.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/enforcement.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/interrogation.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/interrogation-modal.css') }}">
     <style>
         .sandbag-badge {
             background: rgba(255, 165, 0, 0.1);
@@ -733,7 +734,312 @@
         </div>
     </aside>
 
-    <script src="{{ url_for('static', filename='app.js') }}?v=v10003"></script>
+    <!-- Interrogation Modal -->
+    <div id="triInterrogationModal" class="tri-modal-overlay">
+        <div class="tri-modal">
+            <div class="tri-modal-header">
+                <h3>Interrogation</h3>
+                <button class="tri-modal-close" onclick="closeInterrogation()">&times;</button>
+            </div>
+            <div class="tri-modal-body" id="triModalBody">
+                <!-- Content injected by JS -->
+            </div>
+            <div class="tri-modal-footer">
+                <a class="tri-modal-jump-link" id="triModalJumpLink" style="display:none;" onclick="jumpToSource()">
+                    Jump to source in card
+                </a>
+                <button class="tri-modal-btn tri-modal-btn-close" onclick="closeInterrogation()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}?v=v10004"></script>
+    <script>
+    // ============================================
+    // TriAI Interrogation Modal Controller
+    // ============================================
+
+    let currentInterrogation = {
+        aiName: null,
+        claim: null,
+        violationType: null,
+        cardElement: null,
+        violationElement: null
+    };
+
+    function capitalize(str) {
+        if (!str) return '';
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    function getAIIcon(aiName) {
+        const icons = {
+            claude: 'Brown Circle',
+            anthropic: 'Brown Circle',
+            gemini: 'Blue Circle',
+            google: 'Blue Circle',
+            gpt: 'Green Circle',
+            openai: 'Green Circle',
+            perplexity: 'Blue Diamond'
+        };
+        return icons[aiName.toLowerCase()] || 'Robot';
+    }
+
+    function openInterrogation({ aiName, claim, violationType, cardElement }) {
+        currentInterrogation = { aiName, claim, violationType, cardElement };
+
+        const overlay = document.getElementById('triInterrogationModal');
+        const body = document.getElementById('triModalBody');
+        const jumpLink = document.getElementById('triModalJumpLink');
+
+        body.innerHTML = `
+            <span class="tri-modal-ai-badge ${aiName.toLowerCase()}">
+                ${capitalize(aiName)}
+            </span>
+            <div class="tri-modal-violation-type">${violationType}</div>
+            <div class="tri-modal-claim">
+                <div class="tri-modal-claim-label">Flagged Claim</div>
+                "${claim}"
+            </div>
+            <div class="tri-modal-loading" id="triModalLoading">
+                <div class="tri-modal-spinner"></div>
+                <div class="tri-modal-loading-text">Interrogating ${capitalize(aiName)}...</div>
+            </div>
+        `;
+
+        jumpLink.style.display = 'none';
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+
+        overlay.onclick = (e) => {
+            if (e.target === overlay) closeInterrogation();
+        };
+        document.addEventListener('keydown', handleEscape);
+
+        // Call the interrogation API
+        fireInterrogationRequest(aiName, claim);
+    }
+
+    async function fireInterrogationRequest(aiName, claim) {
+        const modelMap = {
+            'openai': 'openai',
+            'anthropic': 'anthropic',
+            'google': 'google',
+            'perplexity': 'perplexity'
+        };
+        const modelType = modelMap[aiName.toLowerCase()] || aiName.toLowerCase();
+
+        // Get the AI's full response for context
+        const responseEl = document.getElementById(`${modelType}-response`);
+        const previousResponse = responseEl ? responseEl.innerText : '';
+
+        try {
+            const response = await fetch('/interrogate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: modelType,
+                    question: `Verify this claim: "${claim}"`,
+                    previous_response: previousResponse,
+                    selected_text: claim
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showInterrogationResult({
+                    defended: data.outcome === 'DEFENDED',
+                    response: data.defense || data.response || 'No response provided.',
+                    credibilityScore: data.new_credibility || 100,
+                    penalty: data.credibility_change || 0
+                });
+
+                // Update the credibility badge in the AI card
+                updateCredibilityBadge(modelType, data.new_credibility, data.credibility_change);
+            } else {
+                showInterrogationError(new Error(data.error || 'Interrogation failed'));
+            }
+        } catch (err) {
+            showInterrogationError(err);
+        }
+    }
+
+    function updateCredibilityBadge(modelName, newScore, change) {
+        const card = document.querySelector(`.ai-card[data-ai="${modelName}"]`);
+        if (!card) return;
+
+        let badge = card.querySelector('.credibility-badge');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'credibility-badge';
+            const header = card.querySelector('.ai-info');
+            if (header) header.appendChild(badge);
+        }
+
+        const scoreClass = newScore >= 80 ? 'high' : newScore >= 50 ? 'medium' : 'low';
+        badge.className = `credibility-badge ${scoreClass}`;
+        badge.textContent = `${newScore}/100`;
+
+        if (change && change !== 0) {
+            const changeSpan = document.createElement('span');
+            changeSpan.style.marginLeft = '6px';
+            changeSpan.style.fontWeight = 'bold';
+            changeSpan.textContent = change >= 0 ? `+${change}` : `${change}`;
+            changeSpan.style.color = change >= 0 ? '#10b981' : '#ef4444';
+            badge.appendChild(changeSpan);
+        }
+    }
+
+    function showInterrogationResult(result) {
+        const loading = document.getElementById('triModalLoading');
+        const jumpLink = document.getElementById('triModalJumpLink');
+
+        // Restore the inline violation indicator
+        restoreViolationItem();
+
+        // Mark the violation as processed with outcome color
+        if (currentInterrogation.violationElement) {
+            const el = currentInterrogation.violationElement;
+            el.classList.add(result.defended ? 'interrogated-defended' : 'interrogated-withdrew');
+        }
+
+        if (!loading) return;
+
+        const status = result.defended ? 'defended' : 'withdrew';
+        const statusIcon = result.defended ? 'Checkmark' : 'X';
+        const statusLabel = result.defended ? 'Claim Defended' : 'Claim Withdrawn';
+        const scoreClass = result.credibilityScore >= 70 ? 'high'
+                         : result.credibilityScore >= 40 ? 'medium'
+                         : 'low';
+
+        loading.outerHTML = `
+            <div class="tri-modal-result ${status}">
+                <div class="tri-modal-result-header ${status}">
+                    ${statusLabel}
+                </div>
+                <div>${result.response}</div>
+                ${result.penalty && result.penalty < 0 ? `
+                    <div style="margin-top: 10px; font-size: 12px; color: #ff8888;">
+                        Credibility Penalty: ${result.penalty} points
+                    </div>
+                ` : ''}
+            </div>
+            <div class="tri-modal-credibility">
+                <div class="tri-modal-score ${scoreClass}">${result.credibilityScore}</div>
+                <div>
+                    <div class="tri-modal-score-label">Credibility Score</div>
+                    <div style="font-size: 12px; color: #666;">${capitalize(currentInterrogation.aiName)}</div>
+                </div>
+            </div>
+        `;
+
+        if (currentInterrogation.cardElement) {
+            jumpLink.style.display = 'inline-flex';
+        }
+    }
+
+    function showInterrogationError(err) {
+        const loading = document.getElementById('triModalLoading');
+
+        // Restore the inline violation indicator
+        restoreViolationItem();
+
+        if (!loading) return;
+
+        loading.outerHTML = `
+            <div class="tri-modal-result withdrew">
+                <div class="tri-modal-result-header withdrew">
+                    Interrogation Failed
+                </div>
+                <div>Could not reach ${capitalize(currentInterrogation.aiName)} for interrogation.
+                The claim remains flagged.</div>
+                <div style="margin-top: 8px; font-size: 12px; color: #666;">${err.message || 'Network error'}</div>
+            </div>
+        `;
+    }
+
+    function closeInterrogation() {
+        const overlay = document.getElementById('triInterrogationModal');
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+        document.removeEventListener('keydown', handleEscape);
+
+        // If closed early (before result), restore the violation item
+        if (currentInterrogation.violationElement &&
+            currentInterrogation.violationElement.classList.contains('interrogating')) {
+            restoreViolationItem();
+        }
+    }
+
+    function jumpToSource() {
+        closeInterrogation();
+
+        if (currentInterrogation.cardElement) {
+            currentInterrogation.cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            currentInterrogation.cardElement.style.outline = '2px solid #ff4444';
+            setTimeout(() => {
+                currentInterrogation.cardElement.style.outline = '';
+            }, 2000);
+        }
+    }
+
+    function handleEscape(e) {
+        if (e.key === 'Escape') closeInterrogation();
+    }
+
+    // Override the violation click handler to use the modal
+    document.addEventListener('click', function(e) {
+        const violationItem = e.target.closest('.violation-item');
+        if (violationItem) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Immediate inline feedback - add pulsing class and spinner
+            if (!violationItem.classList.contains('interrogating')) {
+                violationItem.classList.add('interrogating');
+                const originalContent = violationItem.innerHTML;
+                violationItem.dataset.originalContent = originalContent;
+                violationItem.innerHTML = `<span class="inline-interrogate-spinner"></span> ${originalContent}`;
+            }
+
+            const modelName = violationItem.dataset.ai;
+            const violationText = violationItem.dataset.originalContent || violationItem.textContent.trim();
+
+            // Extract the claim/number from the violation text
+            const claimMatch = violationText.match(/'([^']+)'/);
+            const claim = claimMatch ? claimMatch[1] : violationText;
+
+            // Extract violation type
+            const typeMatch = violationText.match(/^([A-Z_]+):/);
+            const violationType = typeMatch ? typeMatch[1].replace(/_/g, ' ') : 'Violation';
+
+            const cardElement = document.querySelector(`.ai-card[data-ai="${modelName}"]`);
+
+            // Store reference to the clicked violation for later
+            currentInterrogation.violationElement = violationItem;
+
+            openInterrogation({
+                aiName: modelName,
+                claim: claim,
+                violationType: violationType,
+                cardElement: cardElement
+            });
+        }
+    }, true); // Use capture to intercept before other handlers
+
+    // Restore violation item after interrogation completes
+    function restoreViolationItem() {
+        if (currentInterrogation.violationElement) {
+            const el = currentInterrogation.violationElement;
+            el.classList.remove('interrogating');
+            if (el.dataset.originalContent) {
+                el.innerHTML = el.dataset.originalContent;
+                delete el.dataset.originalContent;
+            }
+        }
+    }
+    </script>
 </body>
 
 </html>

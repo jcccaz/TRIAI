@@ -831,31 +831,55 @@ Before providing data, choose a specific expert lens (e.g., 'Forensic Accountant
         "model": "Perplexity Pro"
     }
 
-def send_login_alert(ip_address):
-    """Send push notification via Ntfy.sh"""
+NTFY_TOPIC = "triai-carlos-admin"
+
+def send_ntfy_notification(title: str, message: str, tags: str = "robot", priority: str = "default"):
+    """Send push notification via Ntfy.sh. Fails silently if ntfy is down."""
     try:
         requests.post(
-            "https://ntfy.sh/triai_monitor_secure_2026",
-            data=f"🚀 User accessed TriAI from {ip_address}",
+            f"https://ntfy.sh/{NTFY_TOPIC}",
+            data=message,
             headers={
-                "Title": "TriAI Login Alert",
-                "Priority": "default",
-                "Tags": "warning,login"
+                "Title": title,
+                "Priority": priority,
+                "Tags": tags
             },
-            timeout=2
+            timeout=3
         )
     except Exception as e:
-        print(f"Notification failed: {e}")
+        print(f"[NTFY] Notification failed (non-fatal): {e}")
+
+def send_login_alert(username: str, ip_address: str):
+    """Send login notification via Ntfy.sh"""
+    send_ntfy_notification(
+        title="TriAI Login",
+        message=f"👤 {username} logged in from {ip_address}",
+        tags="bust_in_silhouette,key",
+        priority="default"
+    )
+
+def send_query_complete_notification(username: str, query_preview: str, model_count: int):
+    """Send notification when a query finishes processing."""
+    preview = query_preview[:50] + "..." if len(query_preview) > 50 else query_preview
+    send_ntfy_notification(
+        title="TriAI Query Complete",
+        message=f"✅ {username}'s query finished: \"{preview}\" ({model_count} AIs responded)",
+        tags="white_check_mark,zap",
+        priority="low"
+    )
 
 @app.route('/')
 @basic_auth.required
 def index():
     # Fire notification synchronously (blocking) to guarantee delivery
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    # We call it directly, no thread.
-    send_login_alert(client_ip)
-    
-    return render_template('index.html', roles=COUNCIL_ROLES, defaults=DEFAULT_ASSIGNMENTS)
+    username = request.authorization.username if request.authorization else 'Unknown'
+    send_login_alert(username, client_ip)
+
+    # Sort roles alphabetically by display name for easier navigation
+    sorted_roles = dict(sorted(COUNCIL_ROLES.items(), key=lambda x: x[1]['name'].lower()))
+
+    return render_template('index.html', roles=sorted_roles, defaults=DEFAULT_ASSIGNMENTS)
 
 def generate_consensus(question, results, podcast_mode=False, council_mode=False):
     """Generate consensus using GPT-4o"""
@@ -1137,6 +1161,11 @@ def ask_all_ais():
             project_manager.save_interaction(project_name, question, simple_results, consensus)
         except Exception as e:
             print(f"ERROR: Failed to save to project: {e}")
+
+    # Send ntfy notification that query is complete
+    username = request.authorization.username if request.authorization else 'User'
+    active_count = len([m for m in active_models if results_map.get(m, {}).get('success')])
+    send_query_complete_notification(username, question, active_count)
 
     return jsonify({
         "results": results_map,

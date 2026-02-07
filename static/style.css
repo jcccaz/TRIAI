@@ -276,9 +276,20 @@ body {
 /* ==================== */
 .loading-state {
     text-align: center;
-    padding: var(--spacing-xl);
+    padding: var(--spacing-md) var(--spacing-xl);
     opacity: 1;
     transition: opacity 0.3s ease;
+    /* Sticky positioning - stays visible as user scrolls */
+    position: sticky;
+    top: 80px;
+    z-index: 100;
+    background: rgba(15, 15, 20, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    margin: var(--spacing-md) auto;
+    max-width: 300px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 40px rgba(255, 215, 0, 0.1);
+    border: 1px solid rgba(255, 215, 0, 0.2);
 }
 
 .loading-state.hidden {
@@ -287,10 +298,10 @@ body {
 }
 
 .loading-spinner {
-    width: 50px;
-    height: 50px;
-    margin: 0 auto var(--spacing-md);
-    border: 4px solid var(--border-subtle);
+    width: 40px;
+    height: 40px;
+    margin: 0 auto var(--spacing-sm);
+    border: 3px solid var(--border-subtle);
     border-top-color: var(--accent-gold);
     border-radius: 50%;
     animation: spin 1s linear infinite;
