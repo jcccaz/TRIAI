@@ -42,7 +42,10 @@ def generate_visual_route():
                 "type": "mermaid",
                 "syntax": result
             })
+        else:
+            return jsonify({"status": "error", "message": "Failed to generate chart data"}), 400
     else:
+        # Fallback to image generation
         result = fabricate_and_persist_visual(raw_concept, model_role, profile)
         if result:
             return jsonify({
@@ -54,70 +57,82 @@ def generate_visual_route():
     return jsonify({"status": "error", "message": "Fabrication failed"}), 500
 
 def generate_mermaid_viz(concept, profile='data-viz'):
-    """Generates Mermaid.js syntax for charts/graphs using Gemini."""
+    """Generates precise Mermaid.js XYChart code using Gemini."""
     import logging
     logger = logging.getLogger(__name__)
     
-    gen = get_google_genai()
-    if not gen: 
-        logger.error("Google GenAI not configured.")
-        return None
+    # Switch to 'xychart-beta' which is cleaner for data than 'graph TD'
+    prompt = f"""
+    You are a Data Visualization Engine. Your job is to convert the user's data into valid Mermaid.js 'xychart-beta' syntax.
     
-    # Truncate concept to avoid context bloat if it's too long
-    concept_digest = concept[:4000] if len(concept) > 4000 else concept
+    INPUT DATA:
+    {concept[:3000]}
     
-    instruction = f"""
-    You are THE DATA ARCHITECT. Your mission is to extract numerical or relational data from the provided CONCEPT and convert it into high-fidelity Mermaid.js syntax.
+    INSTRUCTIONS:
+    1. Extract the main numerical series (e.g., Revenue over Time).
+    2. Use 'xychart-beta' which supports bar and line charts.
+    3. If multiple series exist (e.g., Revenue vs Cost), plot both if possible or prioritize Revenue.
+    4. X-Axis should be time (Months/Years) or Categories.
+    5. Y-Axis must be numerical.
     
-    PROFILE: {profile}
-    - If 'data-viz': Use 'pie', 'lineChart', or 'barChart' (Mermaid v10+ syntax). Focus on numerical comparisons.
-    - If 'knowledge-graph': Use 'graph TD' or 'flowchart LR'. Focus on logical dependencies and structural flows.
+    STRICT SYNTAX RULES:
+    - START with `xychart-beta`
+    - Define title: `title "Financial Projection"`
+    - Define x-axis: `x-axis [ "Jan", "Feb", ... ]` (Arrays must be strings)
+    - Define y-axis: `y-axis "Revenue ($)" 0 --> 15000` (Set range automatically based on data)
+    - Define data: `bar [100, 200, ...]` or `line [100, 200, ...]` based on context.
+    - DO NOT use special characters like '$' or ',' inside the data arrays. Keep them as raw numbers.
+    - DO NOT add markdown ticks (```). Return ONLY the code.
     
-    CONCEPT: "{concept_digest}"
-    
-    STRICT RULES:
-    1. Return ONLY the raw Mermaid syntax. NO markdown code blocks, NO "mermaid" prefix.
-    2. Zero external text. Only syntax.
-    3. Ensure labels are concise and technical.
-    4. If no clear data exists to visualize, return "NULL".
-    5. If 'data-viz', ensure the chart title reflects the core numerical comparison.
+    EXAMPLE OUTPUT:
+    xychart-beta
+        title "Quarterly Revenue"
+        x-axis ["Q1", "Q2", "Q3", "Q4"]
+        y-axis "Revenue (k)" 0 --> 100
+        bar [50, 60, 85, 95]
+        line [40, 50, 60, 70]
+        
+    GENERATE NOW:
     """
     
     try:
-        client = gen
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=instruction
-        )
-        clean_syntax = response.text.replace('```mermaid', '').replace('```', '').strip()
-        
-        if clean_syntax.upper() == "NULL" or len(clean_syntax) < 10:
-            logger.warning(f"Mermaid generation for {profile} returned NULL or insufficient data.")
+        google_client = get_google_genai()
+        if not google_client:
+            logger.error("Google Client missing for Mermaid gen.")
             return None
             
-        logger.info(f"Successfully generated Mermaid syntax for {profile} ({len(clean_syntax)} chars).")
-        return clean_syntax
+        model = google_client.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(prompt)
+        
+        raw_text = response.text.replace('```mermaid', '').replace('```', '').strip()
+        
+        # Validation: content must start with xychart-beta or graph
+        if not raw_text.startswith('xychart-beta') and not raw_text.startswith('graph'):
+             logger.warning(f"Invalid Mermaid returned: {raw_text[:50]}...")
+             # Fallback to simple graph if xychart fails? No, return error to avoid bombs
+             return None
+             
+        logger.info(f"Generated strict Mermaid syntax ({len(raw_text)} chars).")
+        return raw_text
+
     except Exception as e:
         logger.error(f"Mermaid generation error: {e}")
         return None
 
 def fabricate_and_persist_visual(concept, role='general', profile='realistic'):
-    """High-fidelity visual generation using Google Nano Banana (Imagen 3)."""
+    """High-fidelity visual generation prioritizing DALL-E 3 (Stable)."""
     import logging
     logger = logging.getLogger(__name__)
     
-    # 1. THE FABRICATOR: Refine the prompt (Using GPT for high-quality prompt engineering)
     style = get_style_for_role(role, profile)
     fabricator_instruction = f"""
-    You are THE FABRICATOR. Write a high-fidelity image generation prompt for Imagen 3 (Nano Banana).
+    You are THE FABRICATOR. Write a high-fidelity image generation prompt for DALL-E 3.
     
     INPUT CONCEPT: "{concept}"
     PROFILE: {profile}
+    STYLE GUIDE: {style}
     
-    CORE MANDATE: 100% TECHNICAL ACCURACY.
-    - The image must be a literal translation of the technical data provided.
-    ...
-    
+    CORE MANDATE: Visual impact and thematic consistency.
     OUTPUT: Return ONLY the raw prompt.
     """
 
@@ -134,39 +149,34 @@ def fabricate_and_persist_visual(concept, role='general', profile='realistic'):
         )
         final_prompt = refined_response.choices[0].message.content
 
-        # 2. THE ENGINE: Google Nano Banana (Imagen 3)
-        logger.info(f"Executing fabrication with prompt: {final_prompt[:100]}...")
-        
-        # Use Google GenAI Client (configured in get_google_genai)
-        google_client = get_google_genai()
-        if not google_client:
-             raise ValueError("Google GenAI client not configured")
-
-        # Call Imagen 3
-        # model='imagen-3.0-generate-001' is the production checkpoint
-        response = google_client.models.generate_images(
-            model='imagen-3.0-generate-001',
-            prompt=final_prompt,
-            config=types.GenerateImageConfig(
-                number_of_images=1,
-                aspect_ratio="1:1"
-            )
-        )
-        
-        # 3. PERSISTENCE
-        save_dir = Path("static/img/fabricated")
-        save_dir.mkdir(parents=True, exist_ok=True)
-        filename = f"nano_{uuid.uuid4().hex[:12]}.png"
-        local_path = save_dir / filename
-        
-        # Save output
-        if response.generated_images:
-            image_bytes = response.generated_images[0].image.image_bytes
-            local_path.write_bytes(image_bytes)
-            logger.info(f"Successfully fabricated and persisted image (Imagen 3): {filename}")
-            return f"/static/img/fabricated/{filename}"
-        else:
-            logger.error("Imagen 3 returned no images.")
+        # 1. THE ENGINE: DALL-E 3 (Primary)
+        try:
+             logger.info(f"Executing fabrication with DALL-E 3...")
+             
+             response = openai_client.images.generate(
+                model="dall-e-3",
+                prompt=final_prompt[:4000],
+                size="1024x1024",
+                quality="standard",
+                n=1,
+             )
+             
+             image_url = response.data[0].url
+             
+             # Download and save locally to match persistence pattern
+             img_data = requests.get(image_url).content
+             save_dir = Path("static/img/fabricated")
+             save_dir.mkdir(parents=True, exist_ok=True)
+             filename = f"dalle_{uuid.uuid4().hex[:12]}.png"
+             local_path = save_dir / filename
+             local_path.write_bytes(img_data)
+             
+             logger.info(f"DALL-E 3 Fabrication SUCCESS: {filename}")
+             return f"/static/img/fabricated/{filename}"
+             
+        except Exception as dalle_error:
+            logger.error(f"DALL-E 3 failed: {dalle_error}")
+            # Could fallback to Imagen here if fixed later
             return None
 
     except Exception as e:

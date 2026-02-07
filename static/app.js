@@ -1412,6 +1412,12 @@ async function triggerContextVisual(text, provider, profile = 'realistic') {
     const originalContent = btn ? btn.innerHTML : '';
     if (btn) btn.innerHTML = '⏳';
 
+    // Display global loading state for better UX
+    loadingState.classList.remove('hidden');
+    const statusText = document.getElementById('loadingStatusText');
+    const originalStatus = statusText ? statusText.textContent : 'Querying...';
+    if (statusText) statusText.textContent = `📊 Architecting ${profile} Visualization...`;
+
     try {
         const response = await fetch('/visualize', {
             method: 'POST',
@@ -1427,14 +1433,37 @@ async function triggerContextVisual(text, provider, profile = 'realistic') {
         const data = await response.json();
         if (btn) btn.innerHTML = originalContent;
 
+        // Hide loading
+        loadingState.classList.add('hidden');
+        if (statusText) statusText.textContent = originalStatus;
+
         if (data.chart_url) {
             showChartModal(data.chart_url, provider);
+        } else if (data.mermaid_syntax) {
+            showChartModal(null, provider, data.mermaid_syntax);
         } else if (data.error) {
             alert(data.error);
         }
+
+        // Scroll to modal if successful
+        if (data.chart_url || data.mermaid_syntax) {
+            setTimeout(() => {
+                const modal = document.getElementById('chartModal');
+                if (modal) {
+                    modal.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    modal.style.transition = 'box-shadow 0.5s';
+                    modal.style.boxShadow = '0 0 30px rgba(255, 215, 0, 0.4)';
+                    setTimeout(() => modal.style.boxShadow = '', 1000);
+                }
+            }, 300);
+        }
+
     } catch (e) {
         console.error(e);
         if (btn) btn.innerHTML = originalContent;
+        loadingState.classList.add('hidden');
+        if (statusText) statusText.textContent = originalStatus;
+        alert(`Visualization failed: ${e.message}`);
     }
 }
 
@@ -2577,29 +2606,84 @@ document.addEventListener('click', (e) => {
     }
 });
 
-function showChartModal(chartUrl, provider) {
-    // Create modal if it doesn't exist
+
+
+// Enhanced Modal to support both Images and Mermaid Diagrams
+function showChartModal(chartUrl, provider, mermaidSyntax = null) {
     let modal = document.getElementById('chartModal');
+
+    // Create modal if it doesn't exist
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'chartModal';
         modal.className = 'modal';
+        // Note: Using flex display by default in CSS, but toggled here
+        modal.style.display = 'none';
+
         modal.innerHTML = `
-    < div class="modal-content" style = "max-width: 900px;" >
-                <div class="modal-header">
-                    <h3>📊 Data Visualization</h3>
-                    <button class="close-modal" onclick="document.getElementById('chartModal').style.display='none'">×</button>
+            <div class="modal-content" style="max-width: 90vw; width: 1000px; max-height: 90vh; display: flex; flex-direction: column;">
+                <div class="modal-header" style="justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid var(--border-color);">
+                    <h3 style="margin: 0; display: flex; align-items: center; gap: 10px;">
+                        <span>📊</span> 
+                        <span id="modalTitle">Data Visualization</span>
+                        <span id="modalProviderBadge" style="font-size: 0.6em; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">${provider || ''}</span>
+                    </h3>
+                    <button class="close-modal" onclick="document.getElementById('chartModal').style.display='none'" style="background: none; border: none; font-size: 24px; color: var(--text-color); cursor: pointer;">×</button>
                 </div>
-                <div class="modal-body" style="text-align: center;">
-                    <img id="chartModalImg" src="" alt="Chart" style="max-width: 100%; height: auto;">
+                
+                <div class="modal-body" style="flex: 1; overflow: auto; padding: 20px; text-align: center; background: rgba(0,0,0,0.2);">
+                    <!-- Image Container -->
+                    <img id="chartModalImg" src="" alt="Chart" style="max-width: 100%; height: auto; display: none; margin: 0 auto; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                    
+                    <!-- Mermaid Container -->
+                    <div id="mermaidContainer" class="mermaid" style="display: none; text-align: center; margin: 0 auto;"></div>
                 </div>
-            </div >
-    `;
+                
+                <div class="modal-footer" style="padding: 10px 15px; border-top: 1px solid var(--border-color); text-align: right; font-size: 0.8em; opacity: 0.7;">
+                    Generated by TriAI Council
+                </div>
+            </div>
+        `;
         document.body.appendChild(modal);
+
+        // Close on outside click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.style.display = 'none';
+        });
     }
 
-    // Show modal with chart
-    document.getElementById('chartModalImg').src = chartUrl + '?t=' + new Date().getTime();
+    const img = document.getElementById('chartModalImg');
+    const mermaidContainer = document.getElementById('mermaidContainer');
+    const badge = document.getElementById('modalProviderBadge');
+    if (badge) badge.textContent = provider || 'AI';
+
+    // Reset State
+    img.style.display = 'none';
+    mermaidContainer.style.display = 'none';
+    mermaidContainer.innerHTML = '';
+
+    if (mermaidSyntax) {
+        // --- MERMAID MODE ---
+        console.log('Rendering Mermaid Chart...');
+        mermaidContainer.style.display = 'block';
+        mermaidContainer.innerHTML = mermaidSyntax;
+        mermaidContainer.removeAttribute('data-processed'); // Reset processing flag
+
+        // Run Mermaid Render
+        setTimeout(() => {
+            mermaid.run({
+                nodes: [mermaidContainer]
+            });
+        }, 100);
+
+    } else if (chartUrl) {
+        // --- IMAGE MODE ---
+        console.log('Loading Image Chart:', chartUrl);
+        img.style.display = 'block';
+        img.src = chartUrl + '?t=' + new Date().getTime(); // Cache busting
+    }
+
+    // Show Modal
     modal.style.display = 'flex';
 }
 

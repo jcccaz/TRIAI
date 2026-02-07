@@ -1242,11 +1242,11 @@ def visualize_data():
         return jsonify({"error": "matplotlib not installed. Run: pip install matplotlib"}), 500
     
     data = request.json
-    if not data or 'comparison_id' not in data or 'provider' not in data:
-        return jsonify({"error": "Missing comparison_id or provider"}), 400
+    comparison_id = data.get('comparison_id')
+    provider = data.get('provider')
     
-    comparison_id = data['comparison_id']
-    provider = data['provider']
+    if not comparison_id or not provider:
+        return jsonify({"error": "Missing ID or provider"}), 400
     
     try:
         # Fetch the AI's response from database
@@ -1263,137 +1263,34 @@ def visualize_data():
         target_text = selected_text if selected_text and len(selected_text) > 10 else response_text
         visual_profile = data.get('visual_profile', 'realistic')
         
-        # If user explicitly requested a Mermaid chart type, jump straight to Mermaid generation
+        # --- 1. MERMAID PATH (Charts, Graphs) ---
         if visual_profile in ['data-viz', 'knowledge-graph']:
             from visuals import generate_mermaid_viz
             mermaid_syntax = generate_mermaid_viz(target_text[:4000], profile=visual_profile)
+            
             if mermaid_syntax:
                 return jsonify({"mermaid_syntax": mermaid_syntax})
+            else:
+                # STRICT BREAK: Do NOT fallback to image generation for charts
+                return jsonify({"error": "Could not extract chart data from this text. Try asking for a table specifically."}), 400
 
-        # Use Claude to extract structured data from the target text
-        extraction_prompt = f"""Extract numeric financial data from the following text and return it as valid JSON.
-
-Look for monthly or time-series data such as:
-- Monthly revenue values
-- Monthly cost values
-- Cumulative values
-- Break-even points
-
-AI Analysis Content:
-{target_text[:4000]}
-
-Return ONLY valid JSON in this exact format (no markdown, no explanation):
-{{
-  "months": [1, 2, 3],
-  "revenue": [16560, 26490, 34863],
-  "costs": [29308, 31592, 33518],
-  "labels": ["Month 1", "Month 2", "Month 3"]
-}}
-
-If no numeric data is found, return: {{"error": "No visualizable data found"}}
-"""
-        
-        # Use Anthropic to extract data (disable visual mode to force JSON output)
-        extracted_json = query_anthropic(extraction_prompt, visual_profile='none')
-        
-        # Parse the extracted data with multiple fallback attempts
-        chart_data = None
-        
-        # Attempt 1: Direct JSON parse
-        try:
-            chart_data = json_lib.loads(extracted_json)
-        except:
-            pass
-        
-        # Attempt 2: Extract from markdown code blocks
-        if not chart_data:
-            try:
-                json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', extracted_json, re.DOTALL)
-                if json_match:
-                    chart_data = json_lib.loads(json_match.group(1))
-            except:
-                pass
-        
-        # Attempt 3: Find JSON object anywhere in response
-        if not chart_data:
-            try:
-                json_match = re.search(r'(\{[^{}]*"months"[^{}]*\})', extracted_json, re.DOTALL)
-                if json_match:
-                    chart_data = json_lib.loads(json_match.group(1))
-            except:
-                pass
-        
-        # If all parsing failed, try to generate a conceptual image instead
-        if not chart_data:
-            print(f"Chart extraction failed, falling back to Image Construction ({visual_profile})...")
-            try:
-                # Use the target text (selection or full) as the concept
-                concept = target_text[:500]
-                image_url = fabricate_and_persist_visual(concept, role='analyst', profile=visual_profile)
-                
-                if image_url:
-                    return jsonify({"chart_url": image_url})
-                else:
-                    return jsonify({
-                        "error": "Could not extract chart data, and image generation failed."
-                    }), 400
-            except Exception as e:
+        # --- 2. IMAGE PATH (Art, Blueprint, Realistic) ---
+        else:
+            from visuals import fabricate_and_persist_visual
+            # Use the target text (selection or full) as the concept
+            concept = target_text[:500]
+            
+            # Map provider to a role hint if possible (e.g. OpenAI -> Analytical)
+            role_hint = 'analyst' 
+            
+            image_url = fabricate_and_persist_visual(concept, role=role_hint, profile=visual_profile)
+            
+            if image_url:
+                return jsonify({"chart_url": image_url})
+            else:
                 return jsonify({
-                    "error": f"Visualization failed: {str(e)}"
+                    "error": "Image generation failed (all providers exhausted)."
                 }), 400
-        
-        if 'error' in chart_data:
-            return jsonify({"message": chart_data['error']}), 200
-        
-        # Validate required fields
-        if 'months' not in chart_data or 'revenue' not in chart_data or 'costs' not in chart_data:
-            return jsonify({
-                "error": "Missing required fields (months, revenue, costs) in extracted data"
-            }), 400
-        
-        # Generate chart
-        plt.figure(figsize=(10, 6))
-        
-        months = chart_data.get('months', [])
-        revenue = chart_data.get('revenue', [])
-        costs = chart_data.get('costs', [])
-        labels = chart_data.get('labels', [f"Month {m}" for m in months])
-        
-        # Ensure all lists are same length
-        min_len = min(len(months), len(revenue), len(costs))
-        months = months[:min_len]
-        revenue = revenue[:min_len]
-        costs = costs[:min_len]
-        
-        if revenue:
-            plt.plot(months, revenue, 'g-', label='Revenue', linewidth=2, marker='o')
-        if costs:
-            plt.plot(months, costs, 'r-', label='Costs', linewidth=2, marker='s')
-        
-        # Mark break-even point if revenues cross costs
-        if revenue and costs and len(revenue) == len(costs):
-            for i in range(len(revenue)):
-                if revenue[i] >= costs[i]:
-                    plt.axvline(x=months[i], color='blue', linestyle='--', label='Break-Even', alpha=0.7)
-                    break
-        
-        plt.xlabel('Month', fontsize=12)
-        plt.ylabel('USD ($)', fontsize=12)
-        plt.title(f'Financial Projection - {provider.upper()}', fontsize=14, fontweight='bold')
-        plt.legend()
-        plt.grid(True, alpha=0.3)
-        plt.tight_layout()
-        
-        # Save chart
-        os.makedirs('static/charts', exist_ok=True)
-        chart_filename = f'comparison_{comparison_id}_{provider}_{int(time.time())}.png'
-        chart_path = os.path.join('static', 'charts', chart_filename)
-        plt.savefig(chart_path, dpi=150, bbox_inches='tight')
-        plt.close()
-        
-        # Return chart URL
-        chart_url = f'/static/charts/{chart_filename}'
-        return jsonify({"chart_url": chart_url})
     
     except Exception as e:
         print(f"Visualization error: {e}")
