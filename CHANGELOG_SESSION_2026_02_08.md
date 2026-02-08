@@ -30,4 +30,27 @@
 ## 🛠️ Next Steps
 *   [ ] Verify the new roles are selectable in the UI.
 *   [ ] Test the "Market Maker" and "Hedge Fund" roles with complex financial queries.
-*   [ ] **Dashboard Phase 1:** Create `dashboard.html` route and basic telemetry endpoints.
+## 🚀 Mission Control Dashboard (Implemented)
+**Time:** 05:45 PM
+**Status:** Deployed & Live
+
+### Features Delivered:
+1.  **Dashboard UI (`/dashboard`)**:
+    *   Real-time telemetry (KPI Cards: Prompts, Cost, Uptime).
+    *   **Voice Integration**: "System Nominal" welcome message via ElevenLabs API.
+    *   **Dynamic Grid**: "Persona × Model" usage density table with Teal/Gold heatmapping.
+    
+2.  **Deployment Fixes (Railway)**:
+    *   **Solved:** "secret Labs: not found" build error by fixing malformed environment variable (`Labs 11` -> `ELEVENLABS_API_KEY`).
+    *   **Solved:** KPI Card JS bug (nested JSON structure mismatch).
+    *   **Solved:** Grid styling logic for better visibility.
+
+3.  **Infrastructure**:
+    *   Added `nixpacks.toml` for stable Python builds.
+    *   Migrated local dev server to port `5001`.
+
+---
+
+## 🛠️ Next Steps
+*   [x] **Dashboard Phase 1:** Create `dashboard.html` route and basic telemetry endpoints.
+*   [ ] **Persona Optimization:** Use scroll data to refine default personalities based on usage.
