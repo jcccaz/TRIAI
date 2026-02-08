@@ -13,13 +13,13 @@ While tools like Abacus.ai and ChatGPT exist, TriAI Compare is built for **resea
 ## 🚀 What Makes This Different?
 
 ### 1. **Council Mode** 🏛️
-Assign specific **expert roles** to each AI model:
-- **GPT-5.2**: Visionary / Business Strategist
-- **Claude 4.5**: System Architect / Security Expert
-- **Gemini 3.0**: Research Lead / Data Scientist
-- **Perplexity Pro**: Real-time Researcher
+Assign specific **expert roles** to each AI model. We now support **30+ specialized personas** including:
+- **War Room**: Liquidator, Crisis Manager, Truth Auditor
+- **Business**: CFO, General Counsel, Sales Engineer
+- **Tech**: Fabric Architect, HAL Lead, Hacker
+- **Science**: Physicist, Evolutionary Biologist, Cognitive Architect
 
-Get structured, role-based advice instead of generic responses.
+👉 **[See the Full Roles Reference](ROLES_REFERENCE.md)** for all 30+ available personas.
 
 ### 2. **Hard Mode Execution** ⚡
 Anti-sandbagging protocols that force AI models to:
@@ -141,6 +141,8 @@ Open your browser to `http://localhost:5000`
 ---
 
 ## 🏗️ Architecture
+
+For a deep dive into the v7.0 Architecture (including the **War Room Split** and **Truth Engine** logic), please see **[SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md)**.
 
 ```
 triai-compare/

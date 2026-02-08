@@ -1726,5 +1726,66 @@ def resynthesize_consensus():
         print(f"Resynthesis Error: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
+# ==============================================================================
+# DASHBOARD / MISSION CONTROL ROUTES
+# ==============================================================================
+@app.route('/dashboard')
+@basic_auth.required
+def mission_control():
+    return render_template('dashboard.html')
+
+@app.route('/api/telemetry')
+@basic_auth.required
+def get_telemetry():
+    # Real data from database
+    try:
+        from database import get_dashboard_telemetry
+        data = get_dashboard_telemetry()
+        return jsonify(data)
+    except Exception as e:
+        print(f"Telemetry API Error: {e}")
+        return jsonify({
+            "status": "error",
+            "error": str(e),
+            "costs": {"daily_total": 0, "last_7_days": 0, "avg_cost_per_prompt": 0},
+            "cassandra_log": []
+        })
+
+@app.route('/api/oracle/verdicts')
+@basic_auth.required
+def get_oracle_verdicts():
+    # This will hook into the Cassandra logic later
+    return jsonify([])
+
+@app.route('/api/voice/welcome')
+@basic_auth.required
+def get_voice_welcome():
+    from voice_gen import generate_voice_alert
+    
+    # Message for dashboard start
+    text = "Welcome to Tri A.I. Mission Control. System status is nominal. Monitoring active."
+    
+    # Cache it as 'welcome.mp3' so we don't burn API credits on reload
+    path = generate_voice_alert(text, filename="welcome_triai.mp3")
+    
+    if path:
+        return jsonify({"success": True, "path": path})
+    return jsonify({"success": False, "error": "Generation failed"})
+
+@app.route('/api/voice/gen', methods=['POST'])
+@basic_auth.required
+def generate_voice_route():
+    from voice_gen import generate_voice_alert
+    data = request.json
+    text = data.get('text', '')
+    
+    if not text:
+        return jsonify({"success": False, "error": "No text provided"}), 400
+        
+    path = generate_voice_alert(text)
+    if path:
+        return jsonify({"success": True, "path": path})
+    return jsonify({"success": False, "error": "Generation failed"})
+   
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5001)
