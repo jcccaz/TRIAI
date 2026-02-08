@@ -191,10 +191,10 @@
             <!-- KPI 1 -->
             <div
                 class="glass-panel p-4 flex flex-col justify-between group hover:border-triai-teal/30 transition-colors">
-                <span class="text-[10px] uppercase tracking-widest text-slate-500">Prompts (24h)</span>
-                <div
-                    class="text-2xl font-light text-white font-mono-tech group-hover:text-triai-teal transition-colors">
-                    1,284</div>
+                <span class="text-xs uppercase tracking-widest text-slate-500">Prompts (24h)</span>
+                <div id="kpi-prompts-24h"
+                    class="text-4xl font-light text-white font-mono-tech group-hover:text-triai-teal transition-colors">
+                    --</div>
                 <div class="h-1 w-full bg-slate-800 mt-2 rounded-full overflow-hidden">
                     <div class="h-full bg-slate-600 w-[65%]"></div>
                 </div>
@@ -202,16 +202,20 @@
             <!-- KPI 2 -->
             <div
                 class="glass-panel p-4 flex flex-col justify-between group hover:border-triai-teal/30 transition-colors">
-                <span class="text-[10px] uppercase tracking-widest text-slate-500">Cost (7d)</span>
-                <div class="text-2xl font-light text-triai-gold font-mono-tech">$38.12</div>
-                <span class="text-[9px] text-triai-teal">▲ 8% vs last week</span>
+                <span class="text-xs uppercase tracking-widest text-slate-500">Cost (7d)</span>
+                <div id="kpi-total-cost"
+                    class="text-4xl font-light text-triai-gold font-mono-tech group-hover:text-white transition-colors">
+                    --</div>
+                <span class="text-[10px] text-green-500 flex items-center gap-1"><i data-lucide="trending-up"
+                        class="w-3 h-3"></i> 5% vs last week</span>
             </div>
             <!-- KPI 3 -->
             <div
                 class="glass-panel p-4 flex flex-col justify-between group hover:border-triai-teal/30 transition-colors">
-                <span class="text-[10px] uppercase tracking-widest text-slate-500">Avg Cost/Prompt</span>
-                <div class="text-2xl font-light text-white font-mono-tech group-hover:text-triai-teal transition-colors"
-                    id="avg-cost">--</div>
+                <span class="text-xs uppercase tracking-widest text-slate-500">Avg Cost/Prompt</span>
+                <div id="kpi-avg-cost"
+                    class="text-4xl font-light text-white font-mono-tech group-hover:text-triai-teal transition-colors">
+                    --</div>
             </div>
             <!-- KPI 4 -->
             <div class="glass-panel p-4 flex flex-col justify-between relative overflow-hidden">
@@ -437,12 +441,30 @@
         fetch('/api/telemetry')
             .then(res => res.json())
             .then(data => {
-                // Update basic stats
-                document.getElementById('avg-cost').innerText = '$' + data.costs.avg_cost_per_prompt;
-                document.getElementById('cost-today').innerText = '$' + data.costs.daily_total;
-                document.getElementById('railway-uptime').innerText = data.infra.railway_uptime;
-                document.getElementById('postgres-rows').innerText = data.infra.postgres_rows + ' rows';
-                document.getElementById('aws-status').innerText = data.infra.aws_status;
+                // Update Infrastructure Stats (if elements exist)
+                if (document.getElementById('railway-uptime')) document.getElementById('railway-uptime').innerText = data.infra.railway_uptime;
+                if (document.getElementById('postgres-rows')) document.getElementById('postgres-rows').innerText = data.infra.postgres_rows + ' rows';
+                if (document.getElementById('aws-status')) document.getElementById('aws-status').innerText = data.infra.aws_status;
+
+
+                // Update KPI Cards
+                if (data.costs && data.costs.prompts_24h !== undefined) {
+                    const el = document.getElementById('kpi-prompts-24h');
+                    if (el) el.innerText = data.costs.prompts_24h.toLocaleString();
+                }
+                if (data.costs && data.costs.last_7_days !== undefined) {
+                    const el = document.getElementById('kpi-total-cost');
+                    if (el) el.innerText = "$" + data.costs.last_7_days.toFixed(2);
+                    // Also update header ticker
+                    const costTodayEl = document.getElementById('cost-today');
+                    if (costTodayEl && data.costs.daily_total !== undefined) {
+                        costTodayEl.innerText = "$" + data.costs.daily_total.toFixed(2);
+                    }
+                }
+                if (data.costs && data.costs.avg_cost_per_prompt !== undefined) {
+                    const el = document.getElementById('kpi-avg-cost');
+                    if (el) el.innerText = "$" + data.costs.avg_cost_per_prompt.toFixed(4);
+                }
 
                 // Colorize status
                 const sysStatus = document.getElementById('system-status');
@@ -484,15 +506,13 @@
 
                             if (count > 0) {
                                 // Dynamic Styling
-                                let styleClass = "opacity-60 text-slate-400"; // Low usage
+                                let styleClass = "bg-triai-teal/5 border-triai-teal/10 text-triai-teal/80 font-medium text-sm"; // Default Teal
                                 let borderClass = "";
 
-                                if (count > 50) { // High usage = Teal
-                                    styleClass = "bg-triai-teal/10 border-triai-teal/20 text-triai-teal font-bold";
-                                    borderClass = "border rounded";
-                                } else if (count > 20) { // Med usage = Gold
-                                    styleClass = "bg-triai-gold/10 border-triai-gold/20 text-triai-gold font-bold";
-                                    borderClass = "border rounded";
+                                if (count > 50) { // High usage = Strong Teal
+                                    styleClass = "bg-triai-teal/20 border-triai-teal/50 text-triai-teal font-extrabold text-base shadow-[0_0_12px_rgba(45,212,191,0.3)]";
+                                } else if (count > 10) { // Med usage = Gold
+                                    styleClass = "bg-triai-gold/10 border-triai-gold/30 text-triai-gold font-bold text-sm";
                                 }
 
                                 cellContent = `
