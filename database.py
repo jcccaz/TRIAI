@@ -1,276 +1,278 @@
 """
-Database layer for TriAI Compare
-Stores all comparisons and responses for history/review
+Database layer for TriAI Compare (SQLAlchemy Version)
+Handles both SQLite (Local) and PostgreSQL (Railway/Production) transparently.
 """
-import sqlite3
-from datetime import datetime
-from typing import List, Dict, Optional
+import os
 import json
+from datetime import datetime
+from typing import List, Dict, Optional, Any
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Float, ForeignKey, Text, func, select, desc
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship, scoped_session
 
-DATABASE_PATH = 'comparisons.db'
+# --- Configuration ---
+# Use database URL from environment variable, or fallback to local SQLite
+DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///comparisons.db')
+
+# Fix for Railway's postgres:// URLs (SQLAlchemy requires postgresql://)
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Create Engine & Session
+engine = create_engine(DATABASE_URL, echo=False)
+SessionLocal = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
+Base = declarative_base()
+
+# --- Models ---
+
+class Comparison(Base):
+    __tablename__ = "comparisons"
+    id = Column(Integer, primary_key=True, index=True)
+    question = Column(Text, nullable=False)
+    document_content = Column(Text, nullable=True)
+    document_name = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    saved = Column(Boolean, default=False)
+    tags = Column(Text, nullable=True)
+
+    # Relationships
+    responses = relationship("Response", back_populates="comparison", cascade="all, delete-orphan")
+    feedback = relationship("QueryFeedback", back_populates="comparison", cascade="all, delete-orphan")
+
+class Response(Base):
+    __tablename__ = "responses"
+    id = Column(Integer, primary_key=True, index=True)
+    comparison_id = Column(Integer, ForeignKey("comparisons.id"))
+    ai_provider = Column(String, nullable=False)
+    model_name = Column(String, nullable=False)
+    response_text = Column(Text, nullable=False)
+    response_time = Column(Float, nullable=True)
+    success = Column(Boolean, default=False)
+    thought_text = Column(Text, nullable=True)
+    self_selected_persona = Column(Text, nullable=True)
+    individual_rating = Column(Integer, nullable=True) # Added for rating feature
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    comparison = relationship("Comparison", back_populates="responses")
+    evaluations = relationship("ResponseEvaluation", back_populates="response", cascade="all, delete-orphan")
+
+class QueryFeedback(Base):
+    __tablename__ = "query_feedback"
+    id = Column(Integer, primary_key=True, index=True)
+    comparison_id = Column(Integer, ForeignKey("comparisons.id"))
+    user_id = Column(String, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    
+    # Role Config
+    gpt_role = Column(String, nullable=True)
+    claude_role = Column(String, nullable=True)
+    gemini_role = Column(String, nullable=True)
+    perplexity_role = Column(String, nullable=True)
+    
+    rating = Column(Integer, nullable=True)
+    
+    # Flags
+    too_generic = Column(Boolean, default=False)
+    missing_details = Column(Boolean, default=False)
+    wrong_roles = Column(Boolean, default=False)
+    didnt_answer = Column(Boolean, default=False)
+    hallucinated = Column(Boolean, default=False)
+    visual_mismatch = Column(Boolean, default=False)
+    mandate_fail = Column(Boolean, default=False)
+    cushioning_present = Column(Boolean, default=False)
+    
+    feedback_text = Column(Text, nullable=True)
+    query_text = Column(Text, nullable=True)
+    query_category = Column(String, nullable=True)
+    feedback_tags = Column(String, nullable=True)
+
+    comparison = relationship("Comparison", back_populates="feedback")
+
+class ResponseEvaluation(Base):
+    __tablename__ = "response_evaluations"
+    id = Column(Integer, primary_key=True, index=True)
+    response_id = Column(Integer, ForeignKey("responses.id"))
+    specificity = Column(Integer, nullable=True)
+    depth = Column(Integer, nullable=True)
+    actionability = Column(Integer, nullable=True)
+    risk_honesty = Column(Integer, nullable=True)
+    overall_quality = Column(Integer, nullable=True)
+    eval_notes = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    response = relationship("Response", back_populates="evaluations")
+
+
+# --- Core Functions ---
 
 def init_database():
-    """Initialize the database with required tables"""
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    # Comparisons table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS comparisons (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            question TEXT NOT NULL,
-            document_content TEXT,
-            document_name TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            saved BOOLEAN DEFAULT 0,
-            tags TEXT
-        )
-    ''')
-    
-    # Responses table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS responses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            comparison_id INTEGER,
-            ai_provider TEXT NOT NULL,
-            model_name TEXT NOT NULL,
-            response_text TEXT NOT NULL,
-            response_time REAL,
-            success BOOLEAN,
-            thought_text TEXT,
-            self_selected_persona TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (comparison_id) REFERENCES comparisons(id)
-        )
-    ''')
-    
-    # Migration: Add self_selected_persona if it doesn't exist
-    try:
-        cursor.execute("ALTER TABLE responses ADD COLUMN self_selected_persona TEXT")
-    except sqlite3.OperationalError:
-        # Column already exists
-        pass
+    """Create tables if they don't exist"""
+    Base.metadata.create_all(bind=engine)
+    print(f"✅ Database initialized ({engine.url.drivername})")
 
-    # Feedback table (User-provided schema)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS query_feedback (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            comparison_id INTEGER,  -- Links to 'comparisons' table id
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            user_id TEXT,  
-            
-            -- Role configuration used
-            gpt_role TEXT,
-            claude_role TEXT,
-            gemini_role TEXT,
-            perplexity_role TEXT,
-            
-            -- Satisfaction rating
-            rating INTEGER,  -- 1-4 scale
-            
-            -- Problem indicators
-            too_generic BOOLEAN,
-            missing_details BOOLEAN,
-            wrong_roles BOOLEAN,
-            didnt_answer BOOLEAN,
-            hallucinated BOOLEAN DEFAULT 0,
-            visual_mismatch BOOLEAN DEFAULT 0,
-            mandate_fail BOOLEAN DEFAULT 0,
-            cushioning_present BOOLEAN DEFAULT 0,
-            
-            -- Optional text feedback
-            feedback_text TEXT,
-            
-            -- Query metadata
-            query_text TEXT,
-            query_category TEXT,
-            
-            FOREIGN KEY (comparison_id) REFERENCES comparisons(id)
-        )
-    ''')
-
-    # Migration: Add granular feedback columns if they don't exist
-    for col in ['hallucinated', 'visual_mismatch', 'mandate_fail', 'cushioning_present', 'feedback_tags']:
-        try:
-            col_def = "TEXT" if col == 'feedback_tags' else "BOOLEAN DEFAULT 0"
-            cursor.execute(f"ALTER TABLE query_feedback ADD COLUMN {col} {col_def}")
-        except sqlite3.OperationalError:
-            pass
-
-    # Response Evaluations table (for the 10-prompt experiment)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS response_evaluations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            response_id INTEGER,
-            specificity INTEGER,
-            depth INTEGER,
-            actionability INTEGER,
-            risk_honesty INTEGER,
-            overall_quality INTEGER,
-            eval_notes TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (response_id) REFERENCES responses(id)
-        )
-    ''')
-    
-    conn.commit()
-    conn.close()
-    print("✅ Database initialized successfully!")
+def get_db():
+    return SessionLocal()
 
 def save_comparison(question: str, responses: Dict, document_content: str = None, document_name: str = None) -> int:
-    """
-    Save a comparison and its responses
-    Returns the comparison ID
-    """
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    # Insert comparison
-    cursor.execute('''
-        INSERT INTO comparisons (question, document_content, document_name, saved)
-        VALUES (?, ?, ?, 0)
-    ''', (question, document_content, document_name))
-    
-    comparison_id = cursor.lastrowid
-    
-    # Insert responses
-    for ai_name, response_data in responses.items():
-        cursor.execute('''
-            INSERT INTO responses (comparison_id, ai_provider, model_name, response_text, response_time, success, thought_text, self_selected_persona)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            comparison_id,
-            ai_name,
-            response_data.get('model', 'Unknown'),
-            response_data.get('response', ''),
-            response_data.get('time', 0),
-            response_data.get('success', False),
-            response_data.get('thought', ''),
-            response_data.get('self_selected_persona', None)
-        ))
-    
-    conn.commit()
-    conn.close()
-    
-    return comparison_id
+    db = SessionLocal()
+    try:
+        # Create Comparison
+        comp = Comparison(
+            question=question,
+            document_content=document_content,
+            document_name=document_name,
+            saved=False
+        )
+        db.add(comp)
+        db.commit()
+        db.refresh(comp)
+        
+        # Create Responses
+        for ai_name, r_data in responses.items():
+            resp = Response(
+                comparison_id=comp.id,
+                ai_provider=ai_name,
+                model_name=r_data.get('model', 'Unknown'),
+                response_text=r_data.get('response', ''),
+                response_time=r_data.get('time', 0),
+                success=r_data.get('success', False),
+                thought_text=r_data.get('thought', ''),
+                self_selected_persona=r_data.get('self_selected_persona', None)
+            )
+            db.add(resp)
+        
+        db.commit()
+        return comp.id
+    except Exception as e:
+        db.rollback()
+        print(f"Error saving comparison: {e}")
+        return -1
+    finally:
+        db.close()
 
 def mark_as_saved(comparison_id: int, tags: str = None):
-    """Mark a comparison as saved with optional tags"""
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        UPDATE comparisons 
-        SET saved = 1, tags = ?
-        WHERE id = ?
-    ''', (tags, comparison_id))
-    
-    conn.commit()
-    conn.close()
+    db = SessionLocal()
+    try:
+        comp = db.query(Comparison).filter(Comparison.id == comparison_id).first()
+        if comp:
+            comp.saved = True
+            comp.tags = tags
+            db.commit()
+    finally:
+        db.close()
 
 def update_response_rating(comparison_id: int, ai_provider: str, rating: int) -> bool:
-    """Update the rating for a specific AI response within a comparison"""
+    db = SessionLocal()
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
+        # Find response by comparison and provider
+        # Note: SQLite likes case-insensitive via query, Postgres is strict. use func.lower()
+        resp = db.query(Response).filter(
+            Response.comparison_id == comparison_id, 
+            func.lower(Response.ai_provider) == ai_provider.lower()
+        ).first()
         
-        cursor.execute('''
-            UPDATE responses 
-            SET individual_rating = ? 
-            WHERE comparison_id = ? AND LOWER(ai_provider) = LOWER(?)
-        ''', (rating, comparison_id, ai_provider))
-        
-        conn.commit()
-        conn.close()
-        return True
-    except Exception as e:
-        print(f"Error updating response rating: {e}")
+        if resp:
+            resp.individual_rating = rating
+            db.commit()
+            return True
         return False
+    except Exception as e:
+        print(f"Error updating rating: {e}")
+        return False
+    finally:
+        db.close()
 
 def save_evaluation(response_id: int, specificity: int, depth: int, actionability: int, risk_honesty: int, overall_quality: int, notes: str = None) -> bool:
-    """Save granular evaluation metrics for a specific response"""
+    db = SessionLocal()
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO response_evaluations (
-                response_id, specificity, depth, actionability, risk_honesty, overall_quality, eval_notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (response_id, specificity, depth, actionability, risk_honesty, overall_quality, notes))
-        
-        conn.commit()
-        conn.close()
+        evaluation = ResponseEvaluation(
+            response_id=response_id,
+            specificity=specificity,
+            depth=depth,
+            actionability=actionability,
+            risk_honesty=risk_honesty,
+            overall_quality=overall_quality,
+            eval_notes=notes
+        )
+        db.add(evaluation)
+        db.commit()
         return True
     except Exception as e:
         print(f"Error saving evaluation: {e}")
         return False
+    finally:
+        db.close()
 
 def save_feedback(data: Dict) -> bool:
-    """Save user feedback for a comparison"""
+    db = SessionLocal()
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO query_feedback (
-                comparison_id, user_id, 
-                gpt_role, claude_role, gemini_role, perplexity_role,
-                rating, too_generic, missing_details, wrong_roles, didnt_answer,
-                hallucinated, visual_mismatch, mandate_fail, cushioning_present,
-                feedback_text, query_text, query_category, feedback_tags
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            data.get('comparison_id'),
-            data.get('user_id'),
-            data.get('gpt_role'),
-            data.get('claude_role'),
-            data.get('gemini_role'),
-            data.get('perplexity_role'),
-            data.get('rating'),
-            data.get('too_generic', False),
-            data.get('missing_details', False),
-            data.get('wrong_roles', False),
-            data.get('didnt_answer', False),
-            data.get('hallucinated', False),
-            data.get('visual_mismatch', False),
-            data.get('mandate_fail', False),
-            data.get('cushioning_present', False),
-            data.get('feedback_text'),
-            data.get('query_text'),
-            data.get('query_category'),
-            data.get('feedback_tags')
-        ))
-        
-        conn.commit()
-        conn.close()
+        feedback = QueryFeedback(
+            comparison_id=data.get('comparison_id'),
+            user_id=data.get('user_id'),
+            gpt_role=data.get('gpt_role'),
+            claude_role=data.get('claude_role'),
+            gemini_role=data.get('gemini_role'),
+            perplexity_role=data.get('perplexity_role'),
+            rating=data.get('rating'),
+            too_generic=data.get('too_generic', False),
+            missing_details=data.get('missing_details', False),
+            wrong_roles=data.get('wrong_roles', False),
+            didnt_answer=data.get('didnt_answer', False),
+            hallucinated=data.get('hallucinated', False),
+            visual_mismatch=data.get('visual_mismatch', False),
+            mandate_fail=data.get('mandate_fail', False),
+            cushioning_present=data.get('cushioning_present', False),
+            feedback_text=data.get('feedback_text'),
+            query_text=data.get('query_text'),
+            query_category=data.get('query_category'),
+            feedback_tags=data.get('feedback_tags')
+        )
+        db.add(feedback)
+        db.commit()
         return True
     except Exception as e:
         print(f"Error saving feedback: {e}")
         return False
+    finally:
+        db.close()
 
 def get_best_config(category: str) -> Optional[Dict]:
-    """Get the highest rated role configuration for a category"""
-    conn = sqlite3.connect(DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        SELECT gpt_role, claude_role, gemini_role, perplexity_role, 
-               AVG(rating) as avg_rating, COUNT(*) as usage_count
-        FROM query_feedback
-        WHERE query_category = ? AND rating >= 3
-        GROUP BY gpt_role, claude_role, gemini_role, perplexity_role
-        ORDER BY avg_rating DESC, usage_count DESC
-        LIMIT 1
-    """, (category,))
-    
-    row = cursor.fetchone()
-    conn.close()
-    return dict(row) if row else None
+    db = SessionLocal()
+    try:
+        # SQLAlchemy Group By + Avg
+        result = db.query(
+            QueryFeedback.gpt_role,
+            QueryFeedback.claude_role,
+            QueryFeedback.gemini_role,
+            QueryFeedback.perplexity_role,
+            func.avg(QueryFeedback.rating).label('avg_rating'),
+            func.count(QueryFeedback.id).label('usage_count')
+        ).filter(
+            QueryFeedback.query_category == category,
+            QueryFeedback.rating >= 3
+        ).group_by(
+            QueryFeedback.gpt_role,
+            QueryFeedback.claude_role,
+            QueryFeedback.gemini_role,
+            QueryFeedback.perplexity_role
+        ).order_by(
+            desc('avg_rating'),
+            desc('usage_count')
+        ).limit(1).first()
+
+        if result:
+            return {
+                "gpt_role": result.gpt_role,
+                "claude_role": result.claude_role,
+                "gemini_role": result.gemini_role,
+                "perplexity_role": result.perplexity_role,
+                "avg_rating": result.avg_rating,
+                "usage_count": result.usage_count
+            }
+        return None
+    finally:
+        db.close()
 
 def get_total_spending() -> Dict:
-    """Calculate total spending and breakdown by provider."""
     pricing_config = {
         "openai": {"input": 5.00, "output": 15.00},
         "anthropic": {"input": 3.00, "output": 15.00},
@@ -278,207 +280,183 @@ def get_total_spending() -> Dict:
         "perplexity": {"input": 3.00, "output": 15.00}
     }
     
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT c.question, r.ai_provider, r.response_text 
-        FROM comparisons c
-        JOIN responses r ON c.id = r.comparison_id
-        WHERE r.success = 1
-    ''')
-    
-    breakdown = {p: 0.0 for p in pricing_config.keys()}
-    total = 0.0
-    
-    for question, provider, response in cursor.fetchall():
-        p_key = provider.lower()
-        if p_key in pricing_config:
-            p = pricing_config[p_key]
-            cost = (len(question or "") / 4 / 1_000_000 * p["input"]) + \
-                   (len(response or "") / 4 / 1_000_000 * p["output"])
-            breakdown[p_key] += cost
-            total += cost
+    db = SessionLocal()
+    try:
+        # Join Comparison + Response
+        responses = db.query(Comparison.question, Response.ai_provider, Response.response_text)\
+            .join(Response, Comparison.id == Response.comparison_id)\
+            .filter(Response.success == True)\
+            .all()
             
-    conn.close()
-    return {
-        "total": round(total, 4),
-        "breakdown": {p: round(c, 4) for p, c in breakdown.items()}
-    }
+        breakdown = {p: 0.0 for p in pricing_config.keys()}
+        total = 0.0
+        
+        for q, provider, text in responses:
+            p_key = provider.lower()
+            if p_key in pricing_config:
+                p = pricing_config[p_key]
+                cost = (len(q or "") / 4 / 1_000_000 * p["input"]) + \
+                       (len(text or "") / 4 / 1_000_000 * p["output"])
+                breakdown[p_key] += cost
+                total += cost
+                
+        return {
+            "total": round(total, 4),
+            "breakdown": {p: round(c, 4) for p, c in breakdown.items()}
+        }
+    finally:
+        db.close()
 
 def get_analytics_summary() -> Dict:
-    """Get summarized analytics for the dashboard"""
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    # Total Queries
-    cursor.execute("SELECT COUNT(*) FROM comparisons")
-    total_queries = cursor.fetchone()[0]
-    
-    # Total Feedback
-    cursor.execute("SELECT COUNT(*) FROM query_feedback")
-    total_feedback = cursor.fetchone()[0]
-    
-    # Average Satisfaction
-    cursor.execute("SELECT AVG(rating) FROM query_feedback")
-    avg_satisfaction = cursor.fetchone()[0] or 0
-    
-    spending_data = get_total_spending()
-    
-    # Top combinations by category
-    cursor.execute("""
-        SELECT query_category, gpt_role, claude_role, gemini_role, perplexity_role, 
-               AVG(rating) as avg_rating, COUNT(*) as count
-        FROM query_feedback
-        WHERE rating >= 3
-        GROUP BY query_category, gpt_role, claude_role, gemini_role, perplexity_role
-        ORDER BY avg_rating DESC, count DESC
-        LIMIT 5
-    """)
-    top_combos = [
-        {
-            "category": r[0], 
-            "roles": {"gpt": r[1], "claude": r[2], "gemini": r[3], "perplexity": r[4]},
-            "rating": round(r[5], 1),
-            "count": r[6]
-        } for r in cursor.fetchall()
-    ]
-    
-    conn.close()
-    return {
-        "total_queries": total_queries,
-        "total_feedback": total_feedback,
-        "avg_satisfaction": round(avg_satisfaction, 1),
-        "total_spent": spending_data["total"],
-        "spending_breakdown": spending_data["breakdown"],
-        "top_combinations": top_combos
-    }
+    db = SessionLocal()
+    try:
+        total_queries = db.query(Comparison).count()
+        total_feedback = db.query(QueryFeedback).count()
+        avg_satisfaction = db.query(func.avg(QueryFeedback.rating)).scalar() or 0
+        
+        spending_data = get_total_spending()
+        
+        # Top Configs
+        top_combos_query = db.query(
+            QueryFeedback.query_category,
+            QueryFeedback.gpt_role,
+            QueryFeedback.claude_role,
+            QueryFeedback.gemini_role,
+            QueryFeedback.perplexity_role,
+            func.avg(QueryFeedback.rating).label('avg_rating'),
+            func.count(QueryFeedback.id).label('count')
+        ).filter(
+            QueryFeedback.rating >= 3
+        ).group_by(
+            QueryFeedback.query_category,
+            QueryFeedback.gpt_role,
+            QueryFeedback.claude_role,
+            QueryFeedback.gemini_role,
+            QueryFeedback.perplexity_role
+        ).order_by(
+            desc('avg_rating'),
+            desc('count')
+        ).limit(5).all()
+
+        top_combos = [
+            {
+                "category": r.query_category, 
+                "roles": {"gpt": r.gpt_role, "claude": r.claude_role, "gemini": r.gemini_role, "perplexity": r.perplexity_role},
+                "rating": round(r.avg_rating, 1),
+                "count": r.count
+            } for r in top_combos_query
+        ]
+
+        return {
+            "total_queries": total_queries,
+            "total_feedback": total_feedback,
+            "avg_satisfaction": round(avg_satisfaction, 1),
+            "total_spent": spending_data["total"],
+            "spending_breakdown": spending_data["breakdown"],
+            "top_combinations": top_combos
+        }
+    finally:
+        db.close()
 
 def get_recent_comparisons(limit: int = 50) -> List[Dict]:
-    """Get recent comparisons with their responses"""
-    conn = sqlite3.connect(DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT * FROM comparisons 
-        ORDER BY timestamp DESC 
-        LIMIT ?
-    ''', (limit,))
-    
-    comparisons = []
-    for row in cursor.fetchall():
-        comparison = dict(row)
-        comparison_id = comparison['id']
-        
-        # Get responses for this comparison
-        cursor.execute('''
-            SELECT * FROM responses 
-            WHERE comparison_id = ?
-            ORDER BY ai_provider
-        ''', (comparison_id,))
-        
-        comparison['responses'] = [dict(r) for r in cursor.fetchall()]
-        comparisons.append(comparison)
-    
-    conn.close()
-    return comparisons
+    db = SessionLocal()
+    try:
+        comps = db.query(Comparison).order_by(desc(Comparison.timestamp)).limit(limit).all()
+        results = []
+        for c in comps:
+            c_dict = {
+                "id": c.id, "question": c.question, 
+                "document_content": c.document_content, "document_name": c.document_name,
+                "timestamp": c.timestamp.isoformat() if c.timestamp else None,
+                "saved": c.saved, "tags": c.tags,
+                "responses": []
+            }
+            # Fetch responses manually or rely on relationship (lazy load)
+            # Relationship is easier but we need to convert to dict
+            for r in c.responses:
+                r_dict = {
+                    "id": r.id, "ai_provider": r.ai_provider, "model_name": r.model_name,
+                    "response_text": r.response_text, "response_time": r.response_time,
+                    "success": r.success, "thought_text": r.thought_text,
+                    "self_selected_persona": r.self_selected_persona,
+                    "individual_rating": r.individual_rating
+                }
+                c_dict['responses'].append(r_dict)
+            results.append(c_dict)
+        return results
+    finally:
+        db.close()
 
 def get_saved_comparisons() -> List[Dict]:
-    """Get only saved/bookmarked comparisons"""
-    conn = sqlite3.connect(DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT * FROM comparisons 
-        WHERE saved = 1
-        ORDER BY timestamp DESC
-    ''')
-    
-    comparisons = []
-    for row in cursor.fetchall():
-        comparison = dict(row)
-        comparison_id = comparison['id']
-        
-        # Get responses
-        cursor.execute('''
-            SELECT * FROM responses 
-            WHERE comparison_id = ?
-            ORDER BY ai_provider
-        ''', (comparison_id,))
-        
-        comparison['responses'] = [dict(r) for r in cursor.fetchall()]
-        comparisons.append(comparison)
-    
-    conn.close()
-    return comparisons
+    db = SessionLocal()
+    try:
+        comps = db.query(Comparison).filter(Comparison.saved == True).order_by(desc(Comparison.timestamp)).all()
+        results = []
+        for c in comps:
+            c_dict = {
+                "id": c.id, "question": c.question, 
+                "timestamp": c.timestamp.isoformat() if c.timestamp else None,
+                "saved": c.saved, "tags": c.tags,
+                "responses": []
+            }
+            for r in c.responses:
+                r_dict = {
+                    "ai_provider": r.ai_provider, "model_name": r.model_name,
+                    "response_text": r.response_text, "success": r.success,
+                    "self_selected_persona": r.self_selected_persona
+                }
+                c_dict['responses'].append(r_dict)
+            results.append(c_dict)
+        return results
+    finally:
+        db.close()
 
 def search_comparisons(query: str) -> List[Dict]:
-    """Search comparisons by question text"""
-    conn = sqlite3.connect(DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT * FROM comparisons 
-        WHERE question LIKE ?
-        ORDER BY timestamp DESC
-        LIMIT 50
-    ''', (f'%{query}%',))
-    
-    comparisons = []
-    for row in cursor.fetchall():
-        comparison = dict(row)
-        comparison_id = comparison['id']
-        
-        cursor.execute('''
-            SELECT * FROM responses 
-            WHERE comparison_id = ?
-            ORDER BY ai_provider
-        ''', (comparison_id,))
-        
-        comparison['responses'] = [dict(r) for r in cursor.fetchall()]
-        comparisons.append(comparison)
-    
-    conn.close()
-    return comparisons
+    db = SessionLocal()
+    try:
+        comps = db.query(Comparison).filter(Comparison.question.ilike(f'%{query}%')).order_by(desc(Comparison.timestamp)).limit(50).all()
+        results = []
+        for c in comps:
+            c_dict = {
+                "id": c.id, "question": c.question, 
+                "timestamp": c.timestamp.isoformat() if c.timestamp else None,
+                "responses": []
+            }
+            for r in c.responses:
+                r_dict = {
+                    "ai_provider": r.ai_provider,
+                    "response_text": r.response_text,
+                    "self_selected_persona": r.self_selected_persona
+                }
+                c_dict['responses'].append(r_dict)
+            results.append(c_dict)
+        return results
+    finally:
+        db.close()
 
 def get_comparison_stats() -> Dict:
-    """Get statistics about stored comparisons"""
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    cursor.execute('SELECT COUNT(*) FROM comparisons')
-    total_comparisons = cursor.fetchone()[0]
-    
-    cursor.execute('SELECT COUNT(*) FROM comparisons WHERE saved = 1')
-    saved_comparisons = cursor.fetchone()[0]
-    
-    cursor.execute('SELECT COUNT(*) FROM responses')
-    total_responses = cursor.fetchone()[0]
-    
-    conn.close()
-    
-    return {
-        'total_comparisons': total_comparisons,
-        'saved_comparisons': saved_comparisons,
-        'total_responses': total_responses
-    }
+    db = SessionLocal()
+    try:
+        total = db.query(Comparison).count()
+        saved = db.query(Comparison).filter(Comparison.saved == True).count()
+        responses = db.query(Response).count()
+        return {
+            'total_comparisons': total,
+            'saved_comparisons': saved,
+            'total_responses': responses
+        }
+    finally:
+        db.close()
 
 def delete_comparison(comparison_id: int):
-    """Delete a comparison and its responses"""
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    # Delete responses first (foreign key)
-    cursor.execute('DELETE FROM responses WHERE comparison_id = ?', (comparison_id,))
-    
-    # Delete comparison
-    cursor.execute('DELETE FROM comparisons WHERE id = ?', (comparison_id,))
-    
-    conn.commit()
-    conn.close()
+    db = SessionLocal()
+    try:
+        comp = db.query(Comparison).filter(Comparison.id == comparison_id).first()
+        if comp:
+            db.delete(comp)
+            db.commit()
+    finally:
+        db.close()
 
-# Initialize database on import
+# Auto-init on import
 init_database()

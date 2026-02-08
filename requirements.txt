@@ -10,3 +10,5 @@ gunicorn
 PyPDF2
 Pillow
 matplotlib
+psycopg2-binary
+SQLAlchemy
