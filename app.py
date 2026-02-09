@@ -153,6 +153,30 @@ def search_vault(query, limit=3):
         print(f"Vault search error: {e}")
         return []
 
+@app.route('/health')
+def health():
+    try:
+        # Check Database
+        stats = get_comparison_stats()
+        # Check API Keys
+        api_status = {
+            "openai": bool(OPENAI_API_KEY),
+            "anthropic": bool(ANTHROPIC_API_KEY),
+            "google": bool(GOOGLE_API_KEY),
+            "perplexity": bool(PERPLEXITY_API_KEY)
+        }
+        return jsonify({
+            "status": "healthy",
+            "database": "connected",
+            "api_keys": api_status,
+            "timestamp": time.time()
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e)
+        }), 500
+
 def extract_thought(text: str) -> Tuple[str, str]:
     """Helper to extract <thinking> tags and return (thought, clean_content)"""
     import re
