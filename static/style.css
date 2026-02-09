@@ -150,25 +150,33 @@ body {
 }
 
 .logo {
-    font-size: 3rem;
-    font-weight: 700;
+    font-family: 'Inter', 'Roboto', sans-serif;
+    /* Ensure modern sans */
+    font-size: 3.5rem;
+    /* Slightly larger */
+    font-weight: 800;
     margin-bottom: var(--spacing-sm);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.04em;
+    /* Tight tracking for modern feel */
+    text-transform: uppercase;
+    /* Authority */
 }
 
 .logo-tri {
     color: var(--text-primary);
-    /* Solid White/Off-White */
-    /* Removed gradient for cleaner brutalist look, or can use gold gradient */
-    background: none;
-    -webkit-text-fill-color: initial;
-    background-clip: border-box;
+    background: linear-gradient(135deg, #ffffff 0%, #e0e0e0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
 .logo-ai {
+    font-weight: 300;
+    /* Contrast weight */
     color: var(--accent-gold);
-    background: none;
-    -webkit-text-fill-color: initial;
+    margin-left: 0.1em;
+    letter-spacing: 0.1em;
+    /* Spaced out OS */
     text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
 }
 
