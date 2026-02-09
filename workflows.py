@@ -37,6 +37,17 @@ class Workflow:
             
             print(f"Executing Step {step_id}: {role} ({model_type})")
             
+            # HEARTBEAT FOR DASHBOARD
+            try:
+                from database import log_system_event
+                log_system_event(
+                    event_type="MISSION_STEPS",
+                    message=f"Processing Step {step_id}: {role.upper()}",
+                    details=f"Model: {model_type} | Key: {task_key}"
+                )
+            except:
+                pass
+            
             # Attempt to format the instruction
             try:
                 formatted_instruction = instruction.format(

@@ -403,7 +403,8 @@ The user has uploaded an image. Your PRIMARY MANDATE is to analyze this specific
         response = client.chat.completions.create(
             model="gpt-4o", 
             messages=messages,
-            max_tokens=2500
+            max_tokens=2500,
+            timeout=60 # Prevent infinite hang
         )
         elapsed_time = time.time() - start_time
         full_content = response.choices[0].message.content
@@ -564,7 +565,8 @@ The user has uploaded an image. Your PRIMARY MANDATE is to analyze this specific
                 model=model_id,
                 max_tokens=3000,
                 system=system_content,
-                messages=messages
+                messages=messages,
+                timeout=90 # Perplexity fallback and big researches need more time
             )
             full_content = response.content[0].text
             

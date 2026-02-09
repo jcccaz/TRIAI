@@ -276,7 +276,7 @@ async function compressImage(file) {
     // Skip small images (< 1MB)
     if (file.size < 1024 * 1024) return file;
 
-    console.log(`📸 Compressing image: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(`?? Compressing image: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
 
     return new Promise((resolve) => {
         const img = new Image();
@@ -311,7 +311,7 @@ async function compressImage(file) {
                         type: 'image/jpeg',
                         lastModified: Date.now()
                     });
-                    console.log(`✅ Compressed to: ${(newFile.size / 1024 / 1024).toFixed(2)} MB`);
+                    console.log(`? Compressed to: ${(newFile.size / 1024 / 1024).toFixed(2)} MB`);
                     resolve(newFile);
                 } else {
                     resolve(file); // Fallback
@@ -504,10 +504,10 @@ function showRecommendation(data) {
     rating.textContent = data.recommendation.avg_rating.toFixed(1) + '/4.0';
 
     list.innerHTML = `
-        <li>✓ GPT: ${data.recommendation.gpt_role}</li>
-        <li>✓ Claude: ${data.recommendation.claude_role}</li>
-        <li>✓ Gemini: ${data.recommendation.gemini_role}</li>
-        <li>✓ Perplexity: ${data.recommendation.perplexity_role}</li>
+        <li>? GPT: ${data.recommendation.gpt_role}</li>
+        <li>? Claude: ${data.recommendation.claude_role}</li>
+        <li>? Gemini: ${data.recommendation.gemini_role}</li>
+        <li>? Perplexity: ${data.recommendation.perplexity_role}</li>
     `;
 
     // Store for application
@@ -944,12 +944,12 @@ function updateResponse(aiName, data) {
         if (!actionsArea.querySelector('.interrogate-btn')) {
             const intBtn = document.createElement('button');
             intBtn.className = 'interrogate-btn';
-            intBtn.innerHTML = `<span>🔍 Interrogate</span>`;
+            intBtn.innerHTML = `<span>?? Interrogate</span>`;
             // Use card-based interrogation, not drawer
             intBtn.onclick = async () => {
                 // Use aiName directly from closure - guaranteed to be correct
                 const modelName = aiName;
-                console.log('🔵 Interrogate button clicked. Model (from closure):', modelName);
+                console.log('?? Interrogate button clicked. Model (from closure):', modelName);
 
                 const userQ = prompt("Enter your interrogation question:", "Is this claim accurate?");
                 if (!userQ) return;
@@ -984,11 +984,11 @@ function updateResponse(aiName, data) {
 
         if (elements.sandbag) {
             if (isGeneric) {
-                elements.sandbag.textContent = '🚨 GENERIC / REFUSAL';
+                elements.sandbag.textContent = '?? GENERIC / REFUSAL';
                 elements.sandbag.classList.add('sandbag-critical'); // Red
                 elements.sandbag.classList.remove('hidden');
             } else if (isImbalanced) {
-                elements.sandbag.textContent = '⚠️ THOUGHT IMBALANCE';
+                elements.sandbag.textContent = '?? THOUGHT IMBALANCE';
                 elements.sandbag.classList.add('sandbag-warning'); // Yellow
                 elements.sandbag.classList.remove('hidden');
             }
@@ -1003,9 +1003,9 @@ function updateResponse(aiName, data) {
 
         // Formatted Label
         const labels = {
-            'action-forward': '🟢 Action-Forward',
-            'advisory': '🟡 Advisory',
-            'narrative': '🔴 Narrative / Caution'
+            'action-forward': '?? Action-Forward',
+            'advisory': '?? Advisory',
+            'narrative': '?? Narrative / Caution'
         };
         elements.bias.textContent = labels[bias] || bias;
 
@@ -1080,8 +1080,8 @@ function renderEnforcementReport(card, enforcement, aiName) {
 
     // CLICKABLE HEADER LINK
     let html = `<div class="enforcement-header clickable-header" onclick="scrollToFirstViolation(this, '${aiName}')" title="Jump to first violation evidence" style="cursor: pointer; display: flex; justify-content: space-between;">
-                    <span>⚠️ Protocol Variance Detected</span>
-                    <span style="opacity: 0.6; font-size: 0.9em;">🔗</span>
+                    <span>?? Protocol Variance Detected</span>
+                    <span style="opacity: 0.6; font-size: 0.9em;">??</span>
                 </div>`;
     html += `<ul class="violation-list">`;
 
@@ -1370,16 +1370,16 @@ function createSelectionTooltip() {
     div.className = 'selection-tooltip hidden';
     div.innerHTML = `
         <button class="tooltip-btn" id="btnVizArt" title="Realistic Render">
-            <span>🖼️</span>
+            <span>???</span>
         </button>
         <button class="tooltip-btn" id="btnVizBlue" title="Technical Blueprint">
-            <span>📐</span>
+            <span>??</span>
         </button>
         <button class="tooltip-btn" id="btnVizChart" title="Data Chart">
-            <span>📊</span>
+            <span>??</span>
         </button>
         <button class="tooltip-btn" id="btnInterrogateSelect" title="Forensic Interrogation">
-            <span>🔍 Interrogate</span>
+            <span>?? Interrogate</span>
         </button>
     `;
     document.body.appendChild(div);
@@ -1410,13 +1410,13 @@ async function triggerContextVisual(text, provider, profile = 'realistic') {
     // Reuse existing visual logic but with explicit text
     const btn = document.querySelector(`.visualize-btn[data-target="${provider}"]`);
     const originalContent = btn ? btn.innerHTML : '';
-    if (btn) btn.innerHTML = '⏳';
+    if (btn) btn.innerHTML = '?';
 
     // Display global loading state for better UX
     loadingState.classList.remove('hidden');
     const statusText = document.getElementById('loadingStatusText');
     const originalStatus = statusText ? statusText.textContent : 'Querying...';
-    if (statusText) statusText.textContent = `📊 Architecting ${profile} Visualization...`;
+    if (statusText) statusText.textContent = `?? Architecting ${profile} Visualization...`;
 
     try {
         const response = await fetch('/visualize', {
@@ -1471,7 +1471,7 @@ async function triggerContextVisual(text, provider, profile = 'realistic') {
 async function triggerCardInterrogation(modelName, responseText, question) {
     if (!modelName || !question) return;
 
-    console.log('🎯 triggerCardInterrogation called with:', { modelName, question });
+    console.log('?? triggerCardInterrogation called with:', { modelName, question });
 
     const elements = responses[modelName];
     if (!elements) {
@@ -1483,12 +1483,12 @@ async function triggerCardInterrogation(modelName, responseText, question) {
     loadingState.classList.remove('hidden');
     const statusText = document.getElementById('loadingStatusText');
     const originalStatus = statusText ? statusText.textContent : 'Querying...';
-    if (statusText) statusText.textContent = "🕵️ Interrogating Suspect...";
+    if (statusText) statusText.textContent = "??? Interrogating Suspect...";
 
     //Find and add spinner to button
     const activeBtn = elements.card.querySelector('.interrogate-btn');
     if (activeBtn) {
-        console.log('✅ Interrogate button found, adding spinner');
+        console.log('? Interrogate button found, adding spinner');
         activeBtn.classList.add('loading');
     }
 
@@ -1511,8 +1511,8 @@ async function triggerCardInterrogation(modelName, responseText, question) {
         if (activeBtn) activeBtn.classList.remove('loading');
 
         if (data.success) {
-            console.log('📊 Interrogation Success');
-            console.log('🔍 Calling displayInterrogationResult with modelName:', modelName);
+            console.log('?? Interrogation Success');
+            console.log('?? Calling displayInterrogationResult with modelName:', modelName);
             displayInterrogationResult(modelName, data, question);
         } else {
             alert(`Interrogation refused: ${data.response || data.error || 'Unknown Reason'}`);
@@ -1541,7 +1541,7 @@ async function triggerContextInterrogate(text, provider) {
     loadingState.classList.remove('hidden');
     const statusText = document.getElementById('loadingStatusText');
     const originalStatus = statusText ? statusText.textContent : 'Querying...';
-    if (statusText) statusText.textContent = "🕵️ Interrogating Suspect...";
+    if (statusText) statusText.textContent = "??? Interrogating Suspect...";
 
     // Visual feedback on the card itself
     const elements = responses[provider];
@@ -1553,11 +1553,11 @@ async function triggerContextInterrogate(text, provider) {
             Array.from(elements.card.querySelectorAll('button')).find(b => b.innerText.includes('Interrogate'));
 
         if (activeBtn) {
-            console.log('✅ Interrogate button found, adding spinner');
+            console.log('? Interrogate button found, adding spinner');
             activeBtn.dataset.originalText = activeBtn.innerText;
             activeBtn.classList.add('loading');
         } else {
-            console.warn('⚠️ Interrogate button NOT found in card');
+            console.warn('?? Interrogate button NOT found in card');
         }
     }
 
@@ -1584,8 +1584,8 @@ async function triggerContextInterrogate(text, provider) {
         }
 
         if (data.success) {
-            console.log('📊 Interrogation Success. Question:', userQ);
-            console.log('🔍 About to call displayInterrogationResult with provider:', provider);
+            console.log('?? Interrogation Success. Question:', userQ);
+            console.log('?? About to call displayInterrogationResult with provider:', provider);
             // New logic using helper function
             displayInterrogationResult(provider, data, userQ);
         } else {
@@ -1602,10 +1602,10 @@ async function triggerContextInterrogate(text, provider) {
 }
 
 function displayInterrogationResult(modelName, result, userQuestion) {
-    console.log('📋 displayInterrogationResult called with modelName:', modelName);
+    console.log('?? displayInterrogationResult called with modelName:', modelName);
     const elements = responses[modelName];
     if (!elements) {
-        console.error('❌ No elements found for model:', modelName);
+        console.error('? No elements found for model:', modelName);
         return;
     }
     const card = elements.card;
@@ -1636,7 +1636,7 @@ function displayInterrogationResult(modelName, result, userQuestion) {
             changeSpan.className = 'credibility-change';
             changeSpan.style.marginLeft = '8px';
             changeSpan.style.fontWeight = 'bold';
-            changeSpan.textContent = changeVal >= 0 ? `▲ +${changeVal}` : `▼ ${changeVal}`;
+            changeSpan.textContent = changeVal >= 0 ? `? +${changeVal}` : `? ${changeVal}`;
             changeSpan.style.color = changeVal >= 0 ? '#10b981' : '#ef4444';
 
             // Remove old change span if exists
@@ -1688,8 +1688,8 @@ function displayInterrogationResult(modelName, result, userQuestion) {
 
         ${result.violations && result.violations.length > 0 ? `
             <details open>
-                <summary style="cursor:pointer; color:#ef4444; font-weight:bold;">🛑 Violations Detected (${result.violations.length})</summary>
-                ${console.log('📝 Rendering violations for model:', modelName) || ''}
+                <summary style="cursor:pointer; color:#ef4444; font-weight:bold;">?? Violations Detected (${result.violations.length})</summary>
+                ${console.log('?? Rendering violations for model:', modelName) || ''}
                 <ul style="margin-top:5px; padding-left:20px; font-size:0.9em; color:#ffaaaa;">
                     ${result.violations.map(v => `<li class="violation-item" data-ai="${modelName}" title="Click to locate in text">${v}</li>`).join('')}
                 </ul>
@@ -1737,7 +1737,7 @@ function extractViolationText(violationElement) {
 }
 
 window.scrollToContext = function (violationElement, modelName) {
-    console.log('🎯 scrollToContext called with:', modelName);
+    console.log('?? scrollToContext called with:', modelName);
 
     // 1. Find the AI's response card
     const aiCard = document.querySelector(`.ai-card[data-ai="${modelName}"]`);
@@ -1799,11 +1799,11 @@ document.addEventListener('click', function (e) {
     const violationItem = e.target.closest('.violation-item');
     if (violationItem) {
         const modelName = violationItem.dataset.ai; // Changed from dataset.model
-        console.log('🔍 Violation clicked via event listener. Model:', modelName);
+        console.log('?? Violation clicked via event listener. Model:', modelName);
         if (modelName) {
             scrollToContext(violationItem, modelName);
         } else {
-            console.error('❌ No AI name on violation item!');
+            console.error('? No AI name on violation item!');
         }
     }
 });
@@ -1837,7 +1837,7 @@ function checkConsensusHealth() {
             btn.style.background = 'rgba(239, 68, 68, 0.2)';
             btn.style.border = '1px solid #ef4444';
             btn.style.color = '#ef4444';
-            btn.innerHTML = '⚠️ Consensus Compromised by Low Credibility. <b>Click to Re-Synthesize</b>';
+            btn.innerHTML = '?? Consensus Compromised by Low Credibility. <b>Click to Re-Synthesize</b>';
 
             btn.onclick = reSynthesizeConsensus;
 
@@ -1851,7 +1851,7 @@ function checkConsensusHealth() {
 async function reSynthesizeConsensus() {
     const btn = document.getElementById('resynthesizeBtn');
     if (btn) {
-        btn.innerHTML = '⚙️ Re-Calibrating Council Decision...';
+        btn.innerHTML = '?? Re-Calibrating Council Decision...';
         btn.disabled = true;
     }
 
@@ -1892,7 +1892,7 @@ async function reSynthesizeConsensus() {
 
             // Update button to show success
             if (btn) {
-                btn.innerHTML = '✅ Consensus Updated to Reflect Interrogations';
+                btn.innerHTML = '? Consensus Updated to Reflect Interrogations';
                 btn.style.color = '#10b981';
                 btn.style.borderColor = '#10b981';
                 btn.style.background = 'rgba(16, 185, 129, 0.1)';
@@ -1900,7 +1900,7 @@ async function reSynthesizeConsensus() {
         } else {
             alert('Resynthesis failed: ' + data.error);
             if (btn) {
-                btn.innerHTML = '⚠️ Retry Re-Synthesis';
+                btn.innerHTML = '?? Retry Re-Synthesis';
                 btn.disabled = false;
             }
         }
@@ -1908,7 +1908,7 @@ async function reSynthesizeConsensus() {
         console.error(e);
         alert('Resynthesis Error');
         if (btn) {
-            btn.innerHTML = '⚠️ Retry Re-Synthesis';
+            btn.innerHTML = '?? Retry Re-Synthesis';
             btn.disabled = false;
         }
     }
@@ -2019,7 +2019,7 @@ async function loadHistory() {
                         <span>${item.responses ? item.responses.length : 0} AIs</span>
                     </div>
                 </div>
-                <button class="delete-history-btn" title="Delete">🗑️</button>
+                <button class="delete-history-btn" title="Delete">???</button>
             `;
 
             // Click on valid area loads the item
@@ -2177,11 +2177,11 @@ async function loadProjects() {
             const el = document.createElement('div');
             el.className = `project - item ${name === currentProjectName ? 'active-project' : ''} `;
             el.innerHTML = `
-    < div class="project-content" >
+    <div class="project-content" >
                     <span class="project-name">${name}</span>
-                    <span class="project-arrow">→</span>
-                </div >
-    <button class="delete-project-btn" title="Delete Project">🗑️</button>
+                    <span class="project-arrow">?</span>
+                </div>
+    <button class="delete-project-btn" title="Delete Project">???</button>
 `;
 
             // Click on name/arrow to select project
@@ -2559,7 +2559,7 @@ document.addEventListener('click', (e) => {
         // Show loading state
         const icon = btn.querySelector('.icon');
         const originalIcon = icon.textContent;
-        icon.textContent = '⏳';
+        icon.textContent = '?';
         btn.disabled = true;
 
         // Get current comparison ID (stored globally when comparison is created)
@@ -2581,7 +2581,7 @@ document.addEventListener('click', (e) => {
         // Default to 'realistic' if not found, otherwise use selected value
         const selectedProfile = profileSelect ? profileSelect.value : 'realistic';
 
-        console.log(`🎨 Requesting visualization for ${target} with profile: ${selectedProfile}`);
+        console.log(`?? Requesting visualization for ${target} with profile: ${selectedProfile}`);
 
         // Capture highlighted text (if any)
         const selection = window.getSelection().toString();
@@ -2642,7 +2642,7 @@ function showChartModal(chartUrl, provider, mermaidSyntax = null) {
             <div class="modal-content" style="max-width: 90vw; width: 1000px; max-height: 90vh; display: flex; flex-direction: column;">
                 <div class="modal-header" style="justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid var(--border-color);">
                     <h3 style="margin: 0; display: flex; align-items: center; gap: 10px;">
-                        <span>📊</span> 
+                        <span>??</span> 
                         <span id="modalTitle">Data Visualization</span>
                         <span id="modalProviderBadge" style="font-size: 0.6em; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">${provider || ''}</span>
                     </h3>
@@ -2794,7 +2794,7 @@ if (pauseWorkflowBtn) {
     pauseWorkflowBtn.addEventListener('click', () => {
         if (confirm('Stop the current workflow?')) {
             stopWorkflow();
-            workflowProgressText.textContent = '❌ Stopped by user.';
+            workflowProgressText.textContent = '? Stopped by user.';
             pauseWorkflowBtn.classList.add('hidden');
         }
     });
@@ -2880,12 +2880,12 @@ function pollWorkflowStatus(jobId) {
         }
 
         try {
-            const response = await fetch(`/ api / workflow / status / ${jobId} `);
+            const response = await fetch(`/api/workflow/status/${jobId}`);
             const data = await response.json();
 
             if (data.error) {
                 clearInterval(interval);
-                alert(`Polling Error: ${data.error} `);
+                alert(`Polling Error: ${data.error}`);
                 stopWorkflow();
                 return;
             }
@@ -2939,14 +2939,14 @@ function createStepCard(step) {
 
     const success = step.data.success;
     const statusClass = success ? 'complete' : 'error';
-    const statusText = success ? '✓ Complete' : '❌ Failed';
+    const statusText = success ? '? Complete' : '? Failed';
 
     // Find instruction from template
     const stepTemplate = currentWorkflowData.steps.find(s => s.id === step.step);
     const instruction = stepTemplate ? stepTemplate.instruction : "Step execution.";
 
     card.innerHTML = `
-    < div class="step-status-row" >
+    <div class="step-status-row" >
             <div class="status-badge ${statusClass}">${statusText}</div>
             <div class="step-id">STEP ${step.step}: ${step.role.toUpperCase()}</div>
             <div class="step-actions">
@@ -2954,7 +2954,7 @@ function createStepCard(step) {
                 <button class="step-btn" onclick="openEditModal('${step.key}', ${step.step})">Edit Output</button>
                 <button class="step-btn" onclick="copyToClipboard(this, \`${step.data.response.replace(/`/g, '\\`')}\`)">Copy</button>
             </div>
-        </div >
+        </div>
         <div class="step-header">
             <span class="step-role" style="color:${colors.hex}">${step.role.toUpperCase()} (${step.model})</span>
         </div>
@@ -2974,16 +2974,16 @@ function createStepCard(step) {
         if (score < 70) scoreClass = 'low';
         else if (score < 90) scoreClass = 'medium';
 
-        const badgeHtml = `< div class="credibility-badge ${scoreClass}" style = "display:inline-block; margin-bottom:10px;" > Truth Score: ${score} /100</div > `;
+        const badgeHtml = `<div class="credibility-badge ${scoreClass}" style="display:inline-block; margin-bottom:10px;">Truth Score: ${score}/100</div>`;
         enfArea.innerHTML = badgeHtml;
 
         // Render Violations
         if (enforcement.violations && enforcement.violations.length > 0) {
-            let vHtml = `< div class="enforcement-report" ><div class="enforcement-header">⚠️ Protocol Variance Detected</div><ul class="violation-list">`;
+            let vHtml = `<div class="enforcement-report"><div class="enforcement-header">?? Protocol Variance Detected</div><ul class="violation-list">`;
             enforcement.violations.forEach(v => {
                 vHtml += `<li class="violation-item" data-ai="${step.model}" title="Click to find in output">${v}</li>`;
             });
-            vHtml += `</ul></div > `;
+            vHtml += `</ul></div>`;
             enfArea.innerHTML += vHtml;
         }
     }
@@ -3189,7 +3189,7 @@ function addInterrogationBubble(type, content, model, role) {
 }
 
 // ==================== //
-// 🚀 New Features: Clickable Header & Badges //
+// ?? New Features: Clickable Header & Badges //
 // ==================== //
 
 // 1. Scroll Clickable Header
@@ -3260,7 +3260,7 @@ window.injectInlineBadges = function (card, violations, modelName) {
                                      "
                                      onmouseover="this.style.opacity='1'"
                                      onmouseout="this.style.opacity='0.7'"
-                                     >⚠</span>`;
+                                     >?</span>`;
 
             if (regex.test(html)) {
                 // Wrap text with subtle highlight - no heavy borders, just a gentle background tint
@@ -3272,7 +3272,7 @@ window.injectInlineBadges = function (card, violations, modelName) {
 
     if (modified) {
         targetDiv.innerHTML = html;
-        console.log(`✅ Injected inline badges for ${modelName}`);
+        console.log(`? Injected inline badges for ${modelName}`);
     }
 };
 
