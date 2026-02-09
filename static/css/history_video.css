@@ -27,8 +27,8 @@
 }
 
 .video-layer.active {
-    opacity: 0.5;
-    /* Standard background opacity - increased for visibility */
+    opacity: 0.3;
+    /* Reduced background opacity to prevent competition */
 }
 
 #processingVideo.active {
