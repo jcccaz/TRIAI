@@ -677,12 +677,12 @@ The user has uploaded an image. Your PRIMARY MANDATE is to analyze this specific
     if visual_profile != 'off':
         prompt_with_reasoning += "\n" + get_visual_mandate(visual_profile)
     
-    # 2026 ERA MODELS - STRICT
-    # 1.5 and 1.0 are EOL. Using 2.5 series.
-    # Updated for google-genai SDK compatibility
+    # 2026 ERA MODELS - Use exact version IDs to avoid "-latest" suffix issues
+    # See: https://ai.google.dev/gemini-api/docs/models
     models_to_try = [
-        'models/gemini-1.5-flash-latest',  
-        'models/gemini-1.5-pro-latest'
+        'gemini-2.0-flash',       # Current stable 2.0 (try first if quota allows)
+        'gemini-1.5-flash-002',   # Stable 1.5 flash with exact version
+        'gemini-1.5-pro-002'      # Stable 1.5 pro with exact version
     ]
     
     
