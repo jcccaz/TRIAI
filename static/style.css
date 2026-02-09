@@ -150,16 +150,16 @@ body {
 }
 
 .logo {
-    font-family: 'Inter', 'Roboto', sans-serif;
-    /* Ensure modern sans */
-    font-size: 3.5rem;
-    /* Slightly larger */
-    font-weight: 800;
+    font-family: 'Cinzel', serif;
+    /* Ancient Power */
+    font-size: 4rem;
+    /* Massive */
+    font-weight: 700;
     margin-bottom: var(--spacing-sm);
-    letter-spacing: -0.04em;
-    /* Tight tracking for modern feel */
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     /* Authority */
+    line-height: 1;
 }
 
 .logo-tri {
@@ -171,6 +171,8 @@ body {
 }
 
 .logo-ai {
+    font-family: 'Rajdhani', sans-serif;
+    /* Future Tech */
     font-weight: 300;
     /* Contrast weight */
     color: var(--accent-gold);
