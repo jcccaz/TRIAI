@@ -91,4 +91,14 @@
 
 ---
 
+## 🧠 Model Specialization Matrix
+*Which AI model drives which type of intelligence?*
+
+*   **GPT-4 / GPT-5.2 (OpenAI):** `Reasoning Engine`. Best for Systems Architecture, Legal Logic, and Complex Deduction.
+*   **Claude 3.5 Sonnet (Anthropic):** `Creative Engine`. Best for Writing, UI Design, Fabric Architecture, and "Vibe" checks.
+*   **Gemini 1.5 Pro (Google):** `Context Engine`. Best for Massive Context (1M+ tokens), Telecom Ops, and Cross-Reference.
+*   **Perplexity:** `Live Data Engine`. Best for **Real-Time Search**, **Fact-Checking**, **Market News**, and **Crisis Intel**.
+
+---
+
 *This guide helps you "cast the movie" by assigning the right actor to the right role.*

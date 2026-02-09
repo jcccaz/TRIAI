@@ -642,6 +642,8 @@ The user has uploaded an image. Your PRIMARY MANDATE is to analyze this specific
     
     # 2026 ERA MODELS - STRICT
     # 1.5 and 1.0 are EOL. Using 2.5 series.
+    # 2026 ERA MODELS - STRICT
+    # 1.5 and 1.0 are EOL. Using 2.5 series.
     models_to_try = [
         'gemini-2.5-flash', 
         'gemini-2.5-pro' 
@@ -649,72 +651,91 @@ The user has uploaded an image. Your PRIMARY MANDATE is to analyze this specific
     
     last_error = None
     
+    import time
+    
     for model_name in models_to_try:
-        try:
-            if image_data:
-                # New SDK image handling
-                from google.genai import types
-                image_part = types.Part.from_bytes(
-                    data=base64.b64decode(image_data),
-                    mime_type="image/jpeg"
-                )
-                response = google_client.models.generate_content(
-                    model=model_name,
-                    contents=[prompt_with_reasoning, image_part]
-                )
-            else:
-                response = google_client.models.generate_content(
-                    model=model_name,
-                    contents=prompt_with_reasoning
-                )
-            
-            elapsed_time = time.time() - start_time
-            full_content = response.text
-            
-            # Handle Visual Augmentation (Post-process)
-            visual_profile = kwargs.get('visual_profile', 'off')
-            if visual_profile != 'off':
-                from visuals import fabricate_and_persist_visual, generate_mermaid_viz
-                
-                if visual_profile in ['data-viz', 'knowledge-graph']:
-                    visual_result = generate_mermaid_viz(full_content, profile=visual_profile)
-                    if visual_result:
-                        full_content += f"\n\n### 📊 {visual_profile.replace('-', ' ').upper()}\n\n```mermaid\n{visual_result}\n```"
+        # Retry mechanism for 429 errors (Burst Limit Handling)
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                if image_data:
+                    # New SDK image handling
+                    from google.genai import types
+                    image_part = types.Part.from_bytes(
+                        data=base64.b64decode(image_data),
+                        mime_type="image/jpeg"
+                    )
+                    response = google_client.models.generate_content(
+                        model=model_name,
+                        contents=[prompt_with_reasoning, image_part]
+                    )
                 else:
-                    role_key = kwargs.get('role', 'general')
-                    visual_result = fabricate_and_persist_visual(full_content, role=role_key, profile=visual_profile)
-                    if visual_result:
-                        full_content += f"\n\n### 🎨 Generated Visual ({visual_profile.capitalize()})\n\n![Generated Image]({visual_result})\n\n_Engine: Google Nano Banana_"
+                    response = google_client.models.generate_content(
+                        model=model_name,
+                        contents=prompt_with_reasoning
+                    )
+                
+                # Success! Process response
+                elapsed_time = time.time() - start_time
+                full_content = response.text
+                
+                # Handle Visual Augmentation (Post-process)
+                visual_profile = kwargs.get('visual_profile', 'off')
+                if visual_profile != 'off':
+                    from visuals import fabricate_and_persist_visual, generate_mermaid_viz
+                    
+                    if visual_profile in ['data-viz', 'knowledge-graph']:
+                        visual_result = generate_mermaid_viz(full_content, profile=visual_profile)
+                        if visual_result:
+                            full_content += f"\n\n### 📊 {visual_profile.replace('-', ' ').upper()}\n\n```mermaid\n{visual_result}\n```"
+                    else:
+                        role_key = kwargs.get('role', 'general')
+                        visual_result = fabricate_and_persist_visual(full_content, role=role_key, profile=visual_profile)
+                        if visual_result:
+                            full_content += f"\n\n### 🎨 Generated Visual ({visual_profile.capitalize()})\n\n![Generated Image]({visual_result})\n\n_Engine: Google Nano Banana_"
+    
+                thought, clean_content = extract_thought(full_content)
+                
+                # Final model name display
+                model_display = role_display
+                self_selected_persona = None
+                
+                if not kwargs.get('council_mode'):
+                    self_selected_persona = extract_persona(clean_content)
+                    if self_selected_persona:
+                        model_display = f"Gemini 3.0 Pro ({self_selected_persona})"
+    
+                # Enforcement Check
+                enforcement = run_enforcement_check(clean_content, kwargs, "google", user_query=question, has_image=bool(image_data))
+    
+                return {
+                    "success": True,
+                    "response": clean_content,
+                    "thought": thought,
+                    "execution_bias": determine_execution_bias(clean_content),
+                    "time": round(elapsed_time, 2),
+                    "cost": 0,
+                    "model": model_display,
+                    "self_selected_persona": self_selected_persona,
+                    "enforcement": enforcement
+                }
 
-            thought, clean_content = extract_thought(full_content)
-            
-            # Final model name display
-            model_display = role_display
-            self_selected_persona = None
-            
-            if not kwargs.get('council_mode'):
-                self_selected_persona = extract_persona(clean_content)
-                if self_selected_persona:
-                    model_display = f"Gemini 3.0 Pro ({self_selected_persona})"
+            except Exception as e:
+                is_quota_error = "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e)
+                
+                if is_quota_error and attempt < max_retries:
+                    wait_time = (attempt + 1) * 3  # Wait 3s, then 6s
+                    print(f"⚠️ Google 429 Quota Hit on {model_name}. Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                    continue  # Retry loop
+                
+                if is_quota_error:
+                    last_error = "Gemini Free Tier Quota Exceeded (Retries Exhausted). Please check Google Cloud Billing."
+                else:
+                    last_error = f"{model_name}: {str(e)}"
+                
+                break # Break retry loop, try next model in outer loop
 
-            # Enforcement Check
-            enforcement = run_enforcement_check(clean_content, kwargs, "google", user_query=question, has_image=bool(image_data))
-
-            return {
-                "success": True,
-                "response": clean_content,
-                "thought": thought,
-                "execution_bias": determine_execution_bias(clean_content),
-                "time": round(elapsed_time, 2),
-                "cost": 0,
-                "model": model_display,
-                "self_selected_persona": self_selected_persona,
-                "enforcement": enforcement
-            }
-        except Exception as e:
-            last_error = f"{model_name}: {str(e)}"
-            continue
-            
     elapsed_time = time.time() - start_time
     return {
         "success": False,
@@ -1493,22 +1514,27 @@ def run_workflow():
                 # Save to History Database
                 try:
                     # Synthesize a 'responses' map for the database schema
-                    # We'll save the final step results as the main comparison content
                     workflow_name = WORKFLOW_JOBS[jid].get('template_name', 'Custom Workflow')
                     db_question = f"🌀 [WORKFLOW: {workflow_name}] - {question}"
                     
                     # Create a results map that fits the standard 4-column UI for now
                     # We'll put the final synthesized result or the most relevant ones.
-                    # Since workflows can have many steps, we'll save the 'Summary' or 'Final' step.
                     final_step = results[-1] if results else None
                     db_results = {
                         "openai": {"success": True, "response": f"Workflow {workflow_name} completed. {len(results)} steps executed.", "model": "Workflow Engine"},
-                        "anthropic": {"success": True, "response": "See workflow detail in project/drawer.", "model": "System"},
+                        "anthropic": {"success": True, "response": "See attached report for full details.", "model": "System"},
                         "google": {"success": True, "response": final_step['data']['response'] if final_step else "No output", "model": "Consensus"},
-                        "perplexity": {"success": True, "response": "Workflow full log stored.", "model": "Audit"}
+                        "perplexity": {"success": True, "response": "Full Workflow Log saved to Document Viewer.", "model": "Audit"}
                     }
-                    save_comparison(db_question, db_results)
-                    print(f"DEBUG: Workflow {jid} saved to history.")
+                    
+                    # SAVE FULL HISTORY to document_content so it's retrievable
+                    save_comparison(
+                        question=db_question, 
+                        responses=db_results,
+                        document_content=eng.full_history,
+                        document_name=f"Workflow_Report_{jid[:4]}.md"
+                    )
+                    print(f"DEBUG: Workflow {jid} saved to history with full text.")
                 except Exception as db_err:
                     print(f"ERROR: Failed to save workflow to history: {db_err}")
             except Exception as ex:

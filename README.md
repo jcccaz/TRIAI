@@ -46,29 +46,26 @@ Run complex, multi-step agentic pipelines that force models to collaborate:
 - **UI/UX Foundry**: Psychologist (Intent) -> Visual Architect (Vibe) -> UI Artisan (Code) -> Critic (A11y).
 - **Crisis Response**: Immediate Triage -> Fact Check -> PR Strategy -> Recovery Plan.
 
-### 6. **Visual Fabrication Engine** 🎨
-Generate visuals directly from AI responses:
-- Data visualizations (charts, graphs)
-- Knowledge graphs (relationships, flows)
-- Technical blueprints
-- Realistic mockups
+### 6. **Mission Control Dashboard** 🎛️
+Real-time telemetry and operational awareness:
+- **Live KPI Cards**: Monitor prompts, costs, and system uptime.
+- **Dynamic Usage Grid**: Heatmap of "Persona × Model" utilization to identify best-performing AI roles.
+- **Voice Alerts**: "System Nominal" audio cues via ElevenLabs integration.
+- **Visual Fabrication Engine**: Generate charts/graphs directly from data.
 
-### 7. **Forensic Analysis** 🧠
-- Extract hidden `<thinking>` tags to see AI reasoning
-- Track "self-selected personas" when AI chooses its own expert identity
-- Measure response depth vs. thought process length
-- Cost tracking per query
-
-### 6. **Multi-Modal Support** 📎
+### 7. **Multi-Modal Support** 📎
 - Upload PDFs, images, text files
 - AI analyzes document content
 - Image-based queries supported
 
-### 7. **Persistent History** 💾
-- SQLite database stores all comparisons
+### 8. **Persistent History** 💾
+- SQLite/PostgreSQL storage
 - Search past queries
 - Export results
-- Analytics dashboard
+### 9. **Forensic Analysis** 🧠
+- Extract hidden `<thinking>` tags to see AI reasoning
+- Track response depth vs. thought process length
+- **Execution Bias Detection**: Action-Forward vs. Advisory vs. Narrative
 
 ---
 
@@ -80,7 +77,8 @@ Generate visuals directly from AI responses:
   - [OpenAI](https://platform.openai.com/)
   - [Anthropic](https://console.anthropic.com/)
   - [Google AI](https://makersuite.google.com/app/apikey)
-  - [Perplexity](https://www.perplexity.ai/settings/api) (optional)
+  - [ElephantLabs](https://elevenlabs.io/) (Optional - for Voice Alerts)
+  - [Perplexity](https://www.perplexity.ai/settings/api) (Optional)
 
 ### Quick Start
 

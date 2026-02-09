@@ -61,6 +61,16 @@ class Workflow:
             else:
                 try:
                     res = query_func(step_prompt, council_mode=True, role=role, hard_mode=hard_mode)
+                    
+                    # AUTO-FAILOVER PROTOCOL
+                    if not res.get('success') and model_type == 'google':
+                        print(f"⚠️ Google Failure Detected (Step {step_id}). Initiating Failover to OpenAI...")
+                        fallback_func = query_funcs.get('openai')
+                        if fallback_func:
+                            res = fallback_func(step_prompt, council_mode=True, role=role, hard_mode=hard_mode)
+                            res['model'] = f"GPT-5.2 (Failover from Google)"
+                            res['response'] = f"**[SYSTEM NOTE: Google API Quota Exceeded. Rerouted to OpenAI for completion.]**\n\n" + res.get('response', '')
+
                 except Exception as e:
                     print(f"Step {step_id} execution error: {e}")
                     res = {"success": False, "response": f"Error: {str(e)}"}
