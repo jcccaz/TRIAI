@@ -590,7 +590,7 @@ def get_dashboard_telemetry() -> Dict:
             .limit(5).all()
         for a in anomalies_q:
             anomaly_log.append({
-                "time": a.timestamp.strftime("%I:%M %p"),
+                "time": a.timestamp.isoformat() + "Z", # Force UTC suffix
                 "type": "HALLUCINATION",
                 "message": f"Flagged: {a.feedback_text[:50] if a.feedback_text else 'Feedback provided'}",
                 "ts": a.timestamp
@@ -600,7 +600,7 @@ def get_dashboard_telemetry() -> Dict:
         system_events = db.query(SystemEvent).order_by(desc(SystemEvent.timestamp)).limit(5).all()
         for se in system_events:
             anomaly_log.append({
-                "time": se.timestamp.strftime("%I:%M %p"),
+                "time": se.timestamp.isoformat() + "Z",
                 "type": se.event_type,
                 "message": se.message[:60],
                 "details": se.details,
@@ -613,7 +613,7 @@ def get_dashboard_telemetry() -> Dict:
             .order_by(desc(Comparison.timestamp)).limit(5).all()
         for m in missions_q:
             recent_missions.append({
-                "time": m.timestamp.strftime("%I:%M %p"),
+                "time": m.timestamp.isoformat() + "Z",
                 "question": m.question[:80] + "..." if len(m.question) > 80 else m.question
             })
             

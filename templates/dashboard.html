@@ -407,6 +407,16 @@
     <script>
         lucide.createIcons();
 
+        function formatTime(isoStr) {
+            if (!isoStr) return "--:--";
+            try {
+                const date = new Date(isoStr);
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch (e) {
+                return isoStr;
+            }
+        }
+
         function updateDashboard() {
             console.log("Mission Control: Initiating Pulse... " + new Date().toLocaleTimeString());
             // fetch real data
@@ -511,7 +521,7 @@
                                             </div>
                                             <div class="flex justify-between text-slate-500 text-[9px]">
                                                 <span>PROMPT RECAP</span>
-                                                <span class="group-hover:text-triai-gold transition-colors">${m.time}</span>
+                                                <span class="group-hover:text-triai-gold transition-colors">${formatTime(m.time)}</span>
                                             </div>
                                         </div>
                                     `;
@@ -536,7 +546,7 @@
                                     <div class="relative pl-3 border-l-2 ${borderClass} mb-4">
                                         <div class="flex justify-between text-slate-500 mb-1">
                                             <span class="${typeColor}">${item.type}</span>
-                                            <span>${item.time}</span>
+                                            <span>${formatTime(item.time)}</span>
                                         </div>
                                         <div class="text-slate-300">${item.message}</div>
                                         ${item.details ? `<div class="text-[9px] text-slate-500 italic mt-1">${item.details}</div>` : ''}
