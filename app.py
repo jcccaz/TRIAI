@@ -673,10 +673,9 @@ The user has uploaded an image. Your PRIMARY MANDATE is to analyze this specific
         'gemini-2.5-pro' 
     ]
     
+    
     last_error = None
-    
-    import time
-    
+        
     for model_name in models_to_try:
         # Retry mechanism for 429 errors (Burst Limit Handling)
         max_retries = 2
