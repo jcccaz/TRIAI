@@ -682,8 +682,9 @@ The user has uploaded an image. Your PRIMARY MANDATE is to analyze this specific
     # 2026 ERA MODELS - STRICT
     # 1.5 and 1.0 are EOL. Using 2.5 series.
     models_to_try = [
-        'gemini-2.5-flash', 
-        'gemini-2.5-pro' 
+        'gemini-2.0-flash', 
+        'gemini-2.0-pro-exp-02-05', # Ultra-high fidelity experimental 2.0
+        'gemini-1.5-pro' 
     ]
     
     
@@ -1837,22 +1838,20 @@ def get_oracle_verdicts():
     return jsonify([])
 
 @app.route('/api/voice/welcome')
-@basic_auth.required
 def get_voice_welcome():
     from voice_gen import generate_voice_alert
     
     # Message for dashboard start
     text = "Welcome to Vantage O S. Cassandra Oracle is online. Monitoring High Council protocols. System status: Absolute."
     
-    # Rename again to force a fresh try with the new Voice ID
-    path, error = generate_voice_alert(text, filename="welcome_oracle_revived_v3.mp3")
+    # Force a fresh generation with the new Cassandra voice
+    path, error = generate_voice_alert(text, filename="cassandra_voice_final.mp3")
     
     if path:
         return jsonify({"success": True, "path": path})
     return jsonify({"success": False, "error": error or "Generation failed"})
 
 @app.route('/api/voice/gen', methods=['POST'])
-@basic_auth.required
 def generate_voice_route():
     from voice_gen import generate_voice_alert
     data = request.json

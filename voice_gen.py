@@ -93,11 +93,11 @@ def generate_voice_alert(text, filename=None):
     
     data = {
         "text": clean_text,
-        "model_id": "eleven_multilingual_v2", # UPGRADED from monolingual v1
+        "model_id": "eleven_multilingual_v2", # Higher quality for paid tier
         "voice_settings": {
             "stability": 0.65,        
-            "similarity_boost": 0.85,  # Slightly higher for clarity
-            "style": 0.0,             # Keep it neutral but authoritative
+            "similarity_boost": 0.85, 
+            "style": 0.0,             
             "use_speaker_boost": True 
         }
     }
@@ -112,9 +112,9 @@ def generate_voice_alert(text, filename=None):
             with open("voice_errors.txt", "a") as log:
                 log.write(f"{error_msg}\n")
             
-            # If v2 fails (rare), try falling back to v1
-            print("Trying fallback to v1 model...")
-            data["model_id"] = "eleven_monolingual_v1"
+            # Final attempt with Multilingual if v1 failed (unlikely)
+            print("Trying fallback to multilingual v2 model...")
+            data["model_id"] = "eleven_multilingual_v2"
             response = requests.post(url, json=data, headers=headers)
             
             if response.status_code != 200:

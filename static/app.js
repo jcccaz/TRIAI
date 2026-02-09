@@ -783,11 +783,23 @@ async function handleAskAllAIs(forcedVisualize = false) {
         }
 
         if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error || 'API request failed');
+            let errorMsg = 'API request failed';
+            try {
+                const errData = await response.json();
+                errorMsg = errData.error || errorMsg;
+            } catch (e) {
+                // If it's HTML, the status code tells the story
+                errorMsg = `Server Error (${response.status})`;
+            }
+            throw new Error(errorMsg);
         }
 
-        const data = await response.json();
+        let data;
+        try {
+            data = await response.json();
+        } catch (e) {
+            throw new Error(`Invalid server response (HTML returned instead of JSON). Status: ${response.status}`);
+        }
 
         // Update UI with responses using the "results" key
         const results = data.results;
@@ -2277,7 +2289,7 @@ function generateMarkdown() {
     let md = `# TriAI Report: ${question} \n\n`;
     md += `** Date:** ${timestamp} \n`;
     if (currentProjectName) md += `** Project:** ${currentProjectName} \n`;
-    md += `\n-- -\n\n## ðŸ¤– Consensus Analysis\n\n${consensus} \n\n-- -\n\n`;
+    md += `\n-- -\n\n## 🏛️ Cassandra: Consensus Analysis\n\n${consensus} \n\n-- -\n\n`;
 
     // Add individual responses
     Object.keys(responses).forEach(key => {
@@ -2451,7 +2463,12 @@ function playNormal(text) {
         },
         body: JSON.stringify({ text: text })
     })
-        .then(response => response.json())
+        .then(async response => {
+            if (!response.ok) {
+                throw new Error(`Server status ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success && data.path) {
                 console.log("Oracle Voice Received:", data.path);

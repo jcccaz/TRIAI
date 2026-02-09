@@ -165,8 +165,10 @@ def generate_mermaid_viz(concept, profile='data-viz'):
             logger.error("Google Client missing for Mermaid gen.")
             return None
             
-        model = google_client.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(prompt)
+        response = google_client.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=prompt
+        )
         
         raw_text = response.text.replace('```mermaid', '').replace('```', '').strip()
         

@@ -139,16 +139,29 @@
             setTimeout(() => overlay.remove(), 1000);
 
             // 🔊 Play Welcome Audio
+            console.log("🔊 Requesting Cassandra Voice...");
             fetch('/api/voice/welcome')
-                .then(res => res.json())
+                .then(res => {
+                    console.log("Voice API Status:", res.status);
+                    if (!res.ok) {
+                        throw new Error(`Voice API returned ${res.status}`);
+                    }
+                    return res.json();
+                })
                 .then(data => {
+                    console.log("Voice Response:", data);
                     if (data.success && data.path) {
                         const audio = new Audio(data.path);
                         audio.volume = 0.8;
-                        audio.play().catch(e => console.log("Audio play failed (interaction required?)", e));
+                        console.log("🔊 Playing audio from:", data.path);
+                        audio.play()
+                            .then(() => console.log("✅ Cassandra voice playing"))
+                            .catch(e => console.error("❌ Audio play blocked:", e));
+                    } else {
+                        console.error("❌ Voice generation failed:", data.error || "No path returned");
                     }
                 })
-                .catch(err => console.error("Voice load error", err));
+                .catch(err => console.error("❌ Voice load error:", err));
         }
     </script>
 
