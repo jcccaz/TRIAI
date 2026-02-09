@@ -603,7 +603,18 @@ def get_dashboard_telemetry() -> Dict:
                 "time": se.timestamp.strftime("%I:%M %p"),
                 "type": se.event_type,
                 "message": se.message[:60],
+                "details": se.details,
                 "ts": se.timestamp
+            })
+            
+        # 5c. Get Recent Missions
+        recent_missions = []
+        missions_q = db.query(Comparison.timestamp, Comparison.question)\
+            .order_by(desc(Comparison.timestamp)).limit(5).all()
+        for m in missions_q:
+            recent_missions.append({
+                "time": m.timestamp.strftime("%I:%M %p"),
+                "question": m.question[:80] + "..." if len(m.question) > 80 else m.question
             })
             
         # Sort combined log by timestamp descending
@@ -632,6 +643,7 @@ def get_dashboard_telemetry() -> Dict:
             "most_used_persona": most_used_persona,
             "persona_density": persona_matrix,
             "cassandra_log": anomaly_log,
+            "recent_missions": recent_missions,
             "infra": {
                 "railway_uptime": "99.9%",
                 "postgres_rows": f"{db.query(Response).count()}",

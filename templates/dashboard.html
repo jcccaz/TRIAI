@@ -231,40 +231,10 @@
         <div class="col-span-12 lg:col-span-3 row-span-6 glass-panel p-5 flex flex-col">
             <h3
                 class="text-xs font-semibold text-triai-gold uppercase tracking-widest mb-4 border-b border-white/5 pb-2">
-                Top Stacks</h3>
+                Recent Mission Feed</h3>
 
-            <div class="space-y-4 font-mono-tech text-sm">
-                <!-- Stack 1 -->
-                <div class="group cursor-pointer">
-                    <div class="flex items-center gap-2 text-white mb-1">
-                        <span class="text-triai-teal">Architect</span> <span class="text-slate-600">►</span> Defender
-                        <span class="text-slate-600">►</span> Auditor
-                    </div>
-                    <div class="flex justify-between text-slate-500 text-[10px]">
-                        <span>67 runs</span>
-                        <span class="group-hover:text-triai-gold transition-colors">$0.051 avg</span>
-                    </div>
-                </div>
-                <!-- Stack 2 -->
-                <div class="group cursor-pointer">
-                    <div class="flex items-center gap-2 text-slate-300 mb-1">
-                        Critic <span class="text-slate-600">►</span> Strategist
-                    </div>
-                    <div class="flex justify-between text-slate-500 text-[10px]">
-                        <span>42 runs</span>
-                        <span class="group-hover:text-triai-gold transition-colors">$0.037 avg</span>
-                    </div>
-                </div>
-                <!-- Stack 3 -->
-                <div class="group cursor-pointer">
-                    <div class="flex items-center gap-2 text-slate-300 mb-1">
-                        Analyst <span class="text-slate-600">►</span> CFO <span class="text-slate-600">►</span> Lecturer
-                    </div>
-                    <div class="flex justify-between text-slate-500 text-[10px]">
-                        <span>21 runs</span>
-                        <span class="group-hover:text-triai-gold transition-colors">$0.019 avg</span>
-                    </div>
-                </div>
+            <div class="space-y-4 font-mono-tech text-sm flex-1 overflow-y-auto" id="recent-missions-container">
+                <!-- Dynamic Content -->
             </div>
 
             <div class="mt-8 border-t border-white/5 pt-4">
@@ -437,101 +407,154 @@
     <script>
         lucide.createIcons();
 
-        // fetch real data
-        fetch('/api/telemetry')
-            .then(res => res.json())
-            .then(data => {
-                // Update Infrastructure Stats (if elements exist)
-                if (document.getElementById('railway-uptime')) document.getElementById('railway-uptime').innerText = data.infra.railway_uptime;
-                if (document.getElementById('postgres-rows')) document.getElementById('postgres-rows').innerText = data.infra.postgres_rows + ' rows';
-                if (document.getElementById('aws-status')) document.getElementById('aws-status').innerText = data.infra.aws_status;
+        function updateDashboard() {
+            console.log("Mission Control: Initiating Pulse... " + new Date().toLocaleTimeString());
+            // fetch real data
+            fetch('/api/telemetry')
+                .then(res => res.json())
+                .then(data => {
+                    console.log("Telemetry Received:", data);
 
-
-                // Update KPI Cards
-                if (data.costs && data.costs.prompts_24h !== undefined) {
-                    const el = document.getElementById('kpi-prompts-24h');
-                    if (el) el.innerText = data.costs.prompts_24h.toLocaleString();
-                }
-                if (data.costs && data.costs.last_7_days !== undefined) {
-                    const el = document.getElementById('kpi-total-cost');
-                    if (el) el.innerText = "$" + data.costs.last_7_days.toFixed(2);
-                    // Also update header ticker
-                    const costTodayEl = document.getElementById('cost-today');
-                    if (costTodayEl && data.costs.daily_total !== undefined) {
-                        costTodayEl.innerText = "$" + data.costs.daily_total.toFixed(2);
+                    // Update Infrastructure Stats
+                    if (data.infra) {
+                        if (document.getElementById('railway-uptime')) document.getElementById('railway-uptime').innerText = data.infra.railway_uptime;
+                        if (document.getElementById('postgres-rows')) document.getElementById('postgres-rows').innerText = data.infra.postgres_rows + ' rows';
+                        if (document.getElementById('aws-status')) document.getElementById('aws-status').innerText = data.infra.aws_status;
                     }
-                }
-                if (data.costs && data.costs.avg_cost_per_prompt !== undefined) {
-                    const el = document.getElementById('kpi-avg-cost');
-                    if (el) el.innerText = "$" + data.costs.avg_cost_per_prompt.toFixed(4);
-                }
 
-                // Colorize status
-                const sysStatus = document.getElementById('system-status');
-                if (data.status === 'nominal') {
-                    sysStatus.innerText = "NOMINAL";
-                    sysStatus.classList.add('text-triai-teal');
-                } else {
-                    sysStatus.innerText = "WARNING";
-                    sysStatus.classList.add('text-triai-red');
-                }
+                    // Update KPI Cards
+                    if (data.costs) {
+                        if (data.costs.prompts_24h !== undefined) {
+                            const el = document.getElementById('kpi-prompts-24h');
+                            if (el) el.innerText = data.costs.prompts_24h.toLocaleString();
+                        }
+                        if (data.costs.last_7_days !== undefined) {
+                            const el = document.getElementById('kpi-total-cost');
+                            if (el) el.innerText = "$" + data.costs.last_7_days.toFixed(2);
 
-                // 📊 Render Persona Table
-                if (data.persona_density) {
-                    const tbody = document.querySelector('tbody');
-                    tbody.innerHTML = ''; // Clear hardcoded rows
+                            const costTodayEl = document.getElementById('cost-today');
+                            if (costTodayEl && data.costs.daily_total !== undefined) {
+                                costTodayEl.innerText = "$" + data.costs.daily_total.toFixed(2);
+                            }
+                        }
+                        if (data.costs.avg_cost_per_prompt !== undefined) {
+                            const el = document.getElementById('kpi-avg-cost');
+                            if (el) el.innerText = "$" + data.costs.avg_cost_per_prompt.toFixed(4);
+                        }
+                    }
 
-                    // Sort personas by total usage (optional, but nice)
-                    const sortedPersonas = Object.keys(data.persona_density).sort((a, b) => {
-                        const sumA = Object.values(data.persona_density[a]).reduce((x, y) => x + y, 0);
-                        const sumB = Object.values(data.persona_density[b]).reduce((x, y) => x + y, 0);
-                        return sumB - sumA;
-                    });
+                    // Colorize status
+                    const sysStatus = document.getElementById('system-status');
+                    if (sysStatus) {
+                        if (data.status === 'nominal') {
+                            sysStatus.innerText = "NOMINAL";
+                            sysStatus.classList.remove('text-triai-red');
+                            sysStatus.classList.add('text-triai-teal');
+                        } else {
+                            sysStatus.innerText = "WARNING";
+                            sysStatus.classList.remove('text-triai-teal');
+                            sysStatus.classList.add('text-triai-red');
+                        }
+                    }
 
-                    sortedPersonas.forEach(persona => {
-                        const counts = data.persona_density[persona];
-                        const tr = document.createElement('tr');
-                        tr.className = "group hover:bg-white/[0.02] transition-colors";
+                    // 📊 Render Persona Table
+                    if (data.persona_density) {
+                        const tbody = document.querySelector('tbody');
+                        if (tbody) {
+                            tbody.innerHTML = '';
+                            const sortedPersonas = Object.keys(data.persona_density).sort((a, b) => {
+                                const sumA = Object.values(data.persona_density[a]).reduce((x, y) => x + y, 0);
+                                const sumB = Object.values(data.persona_density[b]).reduce((x, y) => x + y, 0);
+                                return sumB - sumA;
+                            });
 
-                        // Persona Name
-                        tr.innerHTML = `<td class="py-3 pl-2 text-white">${persona}</td>`;
+                            sortedPersonas.forEach(persona => {
+                                const counts = data.persona_density[persona];
+                                const tr = document.createElement('tr');
+                                tr.className = "group hover:bg-white/[0.02] transition-colors";
+                                tr.innerHTML = `<td class="py-3 pl-2 text-white">${persona}</td>`;
 
-                        // Providers: OpenAI, Anthropic, Google, Perplexity
-                        ['openai', 'anthropic', 'google', 'perplexity'].forEach(prov => {
-                            const count = counts[prov] || 0;
-                            // Estimate cost (rough avg 0.03/msg)
-                            const cost = (count * 0.03).toFixed(2);
+                                ['openai', 'anthropic', 'google', 'perplexity'].forEach(prov => {
+                                    const count = counts[prov] || 0;
+                                    const cost = (count * 0.03).toFixed(2);
+                                    let cellContent = `<span class="text-slate-700">---</span>`;
 
-                            let cellContent = `<span class="text-slate-700">---</span>`;
+                                    if (count > 0) {
+                                        let styleClass = "bg-triai-teal/5 border-triai-teal/10 text-triai-teal/80 font-medium text-sm";
+                                        if (count > 50) {
+                                            styleClass = "bg-triai-teal/20 border-triai-teal/50 text-triai-teal font-extrabold text-base shadow-[0_0_12px_rgba(45,212,191,0.3)]";
+                                        } else if (count > 10) {
+                                            styleClass = "bg-triai-gold/10 border-triai-gold/30 text-triai-gold font-bold text-sm";
+                                        }
+                                        cellContent = `<div class="flex flex-col items-center mx-2 py-1 ${styleClass}"><span>${count}</span><span class="text-[9px] font-normal opacity-70">$${cost}</span></div>`;
+                                    }
+                                    tr.innerHTML += `<td class="py-3 text-center">${cellContent}</td>`;
+                                });
+                                tbody.appendChild(tr);
+                            });
+                        }
+                    }
 
-                            if (count > 0) {
-                                // Dynamic Styling
-                                let styleClass = "bg-triai-teal/5 border-triai-teal/10 text-triai-teal/80 font-medium text-sm"; // Default Teal
-                                let borderClass = "";
+                    // 🧬 Render Recent Missions
+                    if (data.recent_missions) {
+                        const missionContainer = document.getElementById('recent-missions-container');
+                        if (missionContainer) {
+                            if (data.recent_missions.length === 0) {
+                                missionContainer.innerHTML = '<div class="text-[10px] text-slate-600 italic">No missions captured yet...</div>';
+                            } else {
+                                missionContainer.innerHTML = '';
+                                data.recent_missions.forEach(m => {
+                                    const mHtml = `
+                                        <div class="group cursor-pointer mb-4">
+                                            <div class="flex items-center gap-2 text-white mb-1 text-[11px] leading-tight">
+                                                ${m.question}
+                                            </div>
+                                            <div class="flex justify-between text-slate-500 text-[9px]">
+                                                <span>PROMPT RECAP</span>
+                                                <span class="group-hover:text-triai-gold transition-colors">${m.time}</span>
+                                            </div>
+                                        </div>
+                                    `;
+                                    missionContainer.insertAdjacentHTML('beforeend', mHtml);
+                                });
+                            }
+                        }
+                    }
 
-                                if (count > 50) { // High usage = Strong Teal
-                                    styleClass = "bg-triai-teal/20 border-triai-teal/50 text-triai-teal font-extrabold text-base shadow-[0_0_12px_rgba(45,212,191,0.3)]";
-                                } else if (count > 10) { // Med usage = Gold
-                                    styleClass = "bg-triai-gold/10 border-triai-gold/30 text-triai-gold font-bold text-sm";
-                                }
+                    // 📋 Render Anomaly Log
+                    if (data.cassandra_log) {
+                        const logContainer = document.getElementById('cassandra-log-container');
+                        if (logContainer) {
+                            logContainer.innerHTML = '';
+                            data.cassandra_log.forEach(item => {
+                                const borderClass = item.type === 'HALLUCINATION' || item.type === 'CRASH' ? 'border-triai-red/50' :
+                                    (item.type === 'WARNING' || item.type === 'MISSION_STEPS' ? 'border-yellow-500/50' : 'border-triai-teal/50');
+                                const typeColor = item.type === 'HALLUCINATION' || item.type === 'CRASH' ? 'text-triai-red' :
+                                    (item.type === 'WARNING' || item.type === 'MISSION_STEPS' ? 'text-yellow-500' : 'text-triai-teal');
 
-                                cellContent = `
-                                    <div class="flex flex-col items-center mx-2 py-1 ${styleClass} ${borderClass}">
-                                        <span>${count}</span>
-                                        <span class="text-[9px] font-normal opacity-70">$${cost}</span>
+                                const logHtml = `
+                                    <div class="relative pl-3 border-l-2 ${borderClass} mb-4">
+                                        <div class="flex justify-between text-slate-500 mb-1">
+                                            <span class="${typeColor}">${item.type}</span>
+                                            <span>${item.time}</span>
+                                        </div>
+                                        <div class="text-slate-300">${item.message}</div>
+                                        ${item.details ? `<div class="text-[9px] text-slate-500 italic mt-1">${item.details}</div>` : ''}
                                     </div>
                                 `;
-                            }
+                                logContainer.insertAdjacentHTML('beforeend', logHtml);
+                            });
+                        }
+                    }
 
-                            tr.innerHTML += `<td class="py-3 text-center">${cellContent}</td>`;
-                        });
+                })
+                .catch(err => console.error("Telemetry fetch failed", err));
+        }
 
-                        tbody.appendChild(tr);
-                    });
-                }
-
-            })
-            .catch(err => console.error("Telemetry fetch failed", err));
+        // Initial Run
+        updateDashboard();
+        // Refresh every 10 seconds
+        setInterval(updateDashboard, 10000);
 
         // Chart Setup (Gold/Teal Theme)
         const ctx = document.getElementById('costChart').getContext('2d');

@@ -1530,6 +1530,16 @@ def run_workflow():
             "template_name": template['name']
         }
         
+        # MISSION HEARTBEAT
+        try:
+            log_system_event(
+                event_type="MISSION_START",
+                message=f"Deployment Launched: {template['name']}",
+                details=f"Prompt: {question[:100]}..."
+            )
+        except:
+            pass
+
         # Start background execution
         def background_worker(jid, question, hm, eng):
             try:
