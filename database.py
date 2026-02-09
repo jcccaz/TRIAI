@@ -605,4 +605,9 @@ def get_dashboard_telemetry() -> Dict:
         db.close()
 
 # Auto-init on import
-init_database()
+import sys
+try:
+    init_database()
+except Exception as e:
+    print(f"🔥 CRITICAL: Database initialization failed: {e}")
+    sys.exit(1)
