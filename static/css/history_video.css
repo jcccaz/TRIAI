@@ -27,13 +27,13 @@
 }
 
 .video-layer.active {
-    opacity: 0.3;
-    /* Reduced background opacity to prevent competition */
+    opacity: 0;
+    /* experiment: pure black idle state */
 }
 
 #processingVideo.active {
-    opacity: 0.8;
-    /* Higher opacity for the high energy state */
+    opacity: 0.6;
+    /* prominent but not overpowering during processing */
 }
 
 /* ==================== */

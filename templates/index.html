@@ -124,7 +124,8 @@
                 </h1>
                 <p class="tagline"
                     style="line-height: 1.5; font-family: 'Rajdhani', sans-serif; font-weight: 500; letter-spacing: 0.5em; font-size: 1.1rem; margin-top: 15px;">
-                    Decision intelligence // <span style="color: var(--accent-gold);">Governed by the Council</span>
+                    Decision intelligence // <span style="color: var(--accent-gold);">Governed by the Council</span> //
+                    <span style="color: #666; font-size: 0.8em;">Observed by Cassandra</span>
                 </p>
                 <div id="currentProjectDisplay" class="current-project-display hidden">
                     <span class="label">Project:</span>
@@ -358,10 +359,10 @@
                             <span class="slider round"></span>
                             <span class="toggle-label">Podcast Mode</span>
                         </label>
-                        <label class="toggle-switch council-switch">
-                            <input type="checkbox" id="councilToggle">
+                        <label class="toggle-switch" title="Analyze and generate visual mockups/diagrams">
+                            <input type="checkbox" id="visualToggle">
                             <span class="slider round"></span>
-                            <span class="toggle-label">Council 🏛️</span>
+                            <span class="toggle-label">Visualize 🎨</span>
                         </label>
                         <label class="toggle-switch" title="Total Persona Lockdown: 100% Rejection of Generic Fillers">
                             <input type="checkbox" id="hardModeToggle">
@@ -395,11 +396,10 @@
                         style="background: rgba(255, 0, 0, 0.2); color: #ff6b6b; border: 1px solid rgba(255, 0, 0, 0.3);">
                         🗑️
                     </button>
-                    <button id="visualizeBtn" class="ask-button secondary-btn"
-                        style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); margin-right: 10px;"
-                        title="Generate AI Analysis + Visual Mockup">
-                        <span class="button-text">Visualize</span>
-                        <span class="button-icon">🎨</span>
+                    <button id="councilToggleBtn" class="ask-button secondary-btn council-btn"
+                        title="Assemble the Council: Assign specific expert roles to each model">
+                        <span class="button-text">Assemble Council</span>
+                        <span class="button-icon">🏛️</span>
                     </button>
                     <button id="askButton" class="ask-button">
                         <span class="button-text">Ask All AIs</span>

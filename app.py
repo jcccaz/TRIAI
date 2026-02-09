@@ -1842,14 +1842,14 @@ def get_voice_welcome():
     from voice_gen import generate_voice_alert
     
     # Message for dashboard start
-    text = "Welcome to Tri A.I. Mission Control. System status is nominal. Monitoring active."
+    text = "Welcome to Vantage O S. Cassandra Oracle is online. Monitoring High Council protocols. System status: Absolute."
     
-    # Cache it as 'welcome.mp3' so we don't burn API credits on reload
-    path = generate_voice_alert(text, filename="welcome_triai.mp3")
+    # Rename again to force a fresh try with the new Voice ID
+    path, error = generate_voice_alert(text, filename="welcome_oracle_revived_v3.mp3")
     
     if path:
         return jsonify({"success": True, "path": path})
-    return jsonify({"success": False, "error": "Generation failed"})
+    return jsonify({"success": False, "error": error or "Generation failed"})
 
 @app.route('/api/voice/gen', methods=['POST'])
 @basic_auth.required
@@ -1861,10 +1861,10 @@ def generate_voice_route():
     if not text:
         return jsonify({"success": False, "error": "No text provided"}), 400
         
-    path = generate_voice_alert(text)
+    path, error = generate_voice_alert(text)
     if path:
         return jsonify({"success": True, "path": path})
-    return jsonify({"success": False, "error": "Generation failed"})
+    return jsonify({"success": False, "error": error or "Generation failed"})
    
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

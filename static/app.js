@@ -47,17 +47,18 @@ function stopStatusRotation() {
 // ==================== //
 const questionInput = document.getElementById('questionInput');
 const askButton = document.getElementById('askButton');
-const visualizeBtn = document.getElementById('visualizeBtn');
 const cameraBtn = document.getElementById('cameraBtn');
 const cameraInput = document.getElementById('cameraInput');
 const loadingState = document.getElementById('loadingState');
+const resultsSection = document.getElementById('resultsSection');
 const consensusSection = document.getElementById('consensusSection');
 const consensusContent = document.getElementById('consensusContent');
 const vaultToggle = document.getElementById('vaultToggle');
 const citationToggle = document.getElementById('citationToggle');
 const thoughtToggle = document.getElementById('thoughtToggle');
 const podcastToggle = document.getElementById('podcastToggle');
-const councilToggle = document.getElementById('councilToggle');
+const visualToggle = document.getElementById('visualToggle');
+const councilToggleBtn = document.getElementById('councilToggleBtn');
 const hardModeToggle = document.getElementById('hardModeToggle');
 const workflowToggle = document.getElementById('workflowToggle');
 const workflowArea = document.getElementById('workflowArea');
@@ -180,8 +181,8 @@ const responses = {
 // Event Listeners
 // ==================== //
 askButton.addEventListener('click', () => handleAskAllAIs());
-if (visualizeBtn) {
-    visualizeBtn.addEventListener('click', () => handleAskAllAIs(true));
+if (councilToggleBtn) {
+    councilToggleBtn.addEventListener('click', toggleCouncilMode);
 }
 citationToggle.addEventListener('change', handleCitationToggle);
 thoughtToggle.addEventListener('change', handleThoughtToggle);
@@ -196,20 +197,28 @@ questionInput.addEventListener('keydown', (e) => {
 // Role recommendation debounce
 let recTimeout;
 questionInput.addEventListener('input', () => {
-    if (!councilToggle.checked) return;
+    if (!councilModeActive) return;
     clearTimeout(recTimeout);
     recTimeout = setTimeout(checkForRecommendations, 1000);
 });
 
-councilToggle.addEventListener('change', () => {
-    if (councilToggle.checked) {
-        checkForRecommendations();
+let councilModeActive = false;
+
+function toggleCouncilMode() {
+    councilModeActive = !councilModeActive;
+
+    if (councilModeActive) {
+        councilToggleBtn.classList.add('active');
+        councilToggleBtn.querySelector('.button-text').textContent = 'Council Active';
         document.getElementById('roleSelectors').classList.remove('hidden');
+        checkForRecommendations();
     } else {
+        councilToggleBtn.classList.remove('active');
+        councilToggleBtn.querySelector('.button-text').textContent = 'Assemble Council';
         document.getElementById('roleSelectors').classList.add('hidden');
         document.getElementById('roleRecommendation').classList.add('hidden');
     }
-});
+}
 
 // File Upload Logic
 fileUploadArea.addEventListener('click', () => fileInput.click());
@@ -474,7 +483,7 @@ document.getElementById('customizeRolesBtn').addEventListener('click', () => {
 
 async function checkForRecommendations() {
     const question = questionInput.value.trim();
-    if (question.length < 10 || !councilToggle.checked) return;
+    if (question.length < 10 || !councilModeActive) return;
 
     try {
         const response = await fetch('/api/recommend_roles', {
@@ -661,7 +670,9 @@ async function submitFeedback() {
 async function handleAskAllAIs(forcedVisualize = false) {
     let question = questionInput.value.trim();
 
-    if (forcedVisualize && !question.toLowerCase().includes('visual')) {
+    const isVisualizing = forcedVisualize || (visualToggle && visualToggle.checked);
+
+    if (isVisualizing && !question.toLowerCase().includes('visual')) {
         question += " [Please generate a visual mockup/diagram for this query]";
     }
 
@@ -715,7 +726,7 @@ async function handleAskAllAIs(forcedVisualize = false) {
             formData.append('question', question);
             formData.append('use_vault', vaultToggle.checked);
             formData.append('podcast_mode', podcastToggle ? podcastToggle.checked : false);
-            formData.append('council_mode', councilToggle ? councilToggle.checked : false);
+            formData.append('council_mode', councilModeActive);
             formData.append('hard_mode', hardModeToggle ? hardModeToggle.checked : false);
             formData.append('active_models', JSON.stringify(Array.from(activeModels)));
 
@@ -729,7 +740,7 @@ async function handleAskAllAIs(forcedVisualize = false) {
             }
 
             // Add council roles if council mode is enabled
-            if (councilToggle && councilToggle.checked) {
+            if (councilModeActive) {
                 const roles = getCouncilRoles();
                 formData.append('council_roles', JSON.stringify(roles));
             }
@@ -749,16 +760,16 @@ async function handleAskAllAIs(forcedVisualize = false) {
                 question,
                 use_vault: vaultToggle.checked,
                 podcast_mode: podcastToggle ? podcastToggle.checked : false,
-                council_mode: councilToggle ? councilToggle.checked : false,
+                council_mode: councilModeActive,
                 hard_mode: hardModeToggle ? hardModeToggle.checked : false,
                 active_models: Array.from(activeModels),
-                forced_visualize: forcedVisualize
+                forced_visualize: isVisualizing
             };
             if (currentProjectName) {
                 payload.project_name = currentProjectName;
             }
             // Add council roles and visual profiles if council mode is enabled
-            if (councilToggle && councilToggle.checked) {
+            if (councilModeActive) {
                 payload.council_roles = getCouncilRoles();
             }
 
@@ -2381,6 +2392,7 @@ function toggleVoiceInput() {
 // 3. Text-to-Speech (Global Manager)
 let speechSynth = window.speechSynthesis;
 let speechUtterance = null;
+let currentAudio = null; // New global for ElevenLabs audio
 let podcastQueue = [];
 let isPodcastPlaying = false;
 let availableVoices = [];
@@ -2398,9 +2410,13 @@ if (speechSynth.onvoiceschanged !== undefined) {
 }
 
 function toggleSpeech() {
-    if (speechSynth.speaking || isPodcastPlaying) {
+    if (speechSynth.speaking || isPodcastPlaying || (currentAudio && !currentAudio.paused)) {
         // Stop Everything
         speechSynth.cancel();
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio.currentTime = 0;
+        }
         isPodcastPlaying = false;
         podcastQueue = [];
         updateListenButton(false);
@@ -2422,10 +2438,58 @@ function toggleSpeech() {
 }
 
 function playNormal(text) {
-    speechUtterance = new SpeechSynthesisUtterance(text);
+    // try ElevenLabs first (Cassandra Persona)
+    console.log("Oracle Voice Synthesis Requested...");
+
+    // UI Feedback
+    listenBtn.innerHTML = '<span class="icon">⌛</span> Waking Cassandra...';
+
+    fetch('/api/voice/gen', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text: text })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.path) {
+                console.log("Oracle Voice Received:", data.path);
+                if (currentAudio) currentAudio.pause();
+                currentAudio = new Audio(data.path);
+                currentAudio.play();
+                currentAudio.onended = () => updateListenButton(false);
+                updateListenButton(true);
+            } else {
+                console.error("Cassandra Error Detail:", data.error);
+                listenBtn.innerHTML = '<span class="icon">⚠️</span> Voice Error';
+                setTimeout(() => {
+                    console.warn("Falling back to browser robot...");
+                    fallbackToBrowserTTS(text);
+                }, 1500);
+            }
+        })
+        .catch(err => {
+            console.error("ElevenLabs API Connection Error:", err);
+            listenBtn.innerHTML = '<span class="icon">⚠️</span> Connection Failed';
+            fallbackToBrowserTTS(text);
+        });
+}
+
+function fallbackToBrowserTTS(text) {
+    // Basic cleaning for the robot fallback
+    let cleanText = text
+        .replace(/#+\s*/g, '')         // Remove headers
+        .replace(/[*_]+/g, '')        // Remove bold/italics
+        .replace(/checkmark/gi, '')    // Remove "checkmark"
+        .replace(/[^\x00-\x7F]+/g, ' ') // Remove emojis/symbols
+        .replace(/`+/g, '')            // Remove backticks
+        .replace(/\n+/g, '. ')         // Newlines to dots
+        .trim();
+
+    speechUtterance = new SpeechSynthesisUtterance(cleanText);
     speechUtterance.lang = 'en-US';
 
-    // Voice Selection
     const voice = availableVoices.find(v => v.name.includes("Google US English") || v.name.includes("Microsoft Zira")) || availableVoices[0];
     if (voice) speechUtterance.voice = voice;
 
@@ -2435,6 +2499,7 @@ function playNormal(text) {
         updateListenButton(false);
     };
     speechSynth.speak(speechUtterance);
+    updateListenButton(true);
 }
 
 function playPodcast(text) {
@@ -2507,14 +2572,14 @@ function playNextPodcastLine() {
 
 function updateListenButton(isSpeaking) {
     if (isSpeaking) {
-        listenBtn.innerHTML = '<span class="icon">â¹ï¸</span> Stop';
+        listenBtn.innerHTML = '<span class="icon">⏹</span> Stop';
         listenBtn.classList.add('active-voice');
-        listenBtn.style.borderColor = '#eab308'; // Warn/Gold color
-        listenBtn.style.color = '#eab308';
+        listenBtn.style.borderColor = '#d4af37';
+        listenBtn.style.color = '#d4af37';
     } else {
-        listenBtn.innerHTML = '<span class="icon">ðŸ”Š</span> Listen';
+        listenBtn.innerHTML = '<span class="icon">🔊</span> Listen';
         listenBtn.classList.remove('active-voice');
-        listenBtn.style.borderColor = ''; // Reset to default
+        listenBtn.style.borderColor = '';
         listenBtn.style.color = '';
     }
 }
@@ -3193,7 +3258,7 @@ function addInterrogationBubble(type, content, model, role) {
 // ==================== //
 
 // 1. Scroll Clickable Header
-window.scrollToFirstViolation = function (headerElement, modelName) {
+function scrollToFirstViolation(headerElement, modelName) {
     const reportDiv = headerElement.closest('.enforcement-report');
     if (!reportDiv) return;
 
@@ -3212,7 +3277,7 @@ window.scrollToFirstViolation = function (headerElement, modelName) {
 };
 
 // 2. Inject Badges
-window.injectInlineBadges = function (card, violations, modelName) {
+function injectInlineBadges(card, violations, modelName) {
     if (!violations || violations.length === 0) return;
 
     // Target the response text

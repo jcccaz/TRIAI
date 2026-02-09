@@ -109,7 +109,7 @@ body {
 .section-label {
     display: block;
     color: var(--text-muted);
-    font-size: 0.75rem;
+    font-size: 0.9rem;
     font-weight: 600;
     letter-spacing: 0.05em;
     margin-bottom: 0.75rem;
@@ -166,6 +166,7 @@ body {
     color: var(--text-primary);
     background: linear-gradient(135deg, #ffffff 0%, #e0e0e0 100%);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
 }
@@ -279,6 +280,31 @@ body {
 
 .ask-button:hover .button-icon {
     transform: translateX(4px);
+}
+
+.council-btn {
+    background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%) !important;
+    border: 1px solid var(--accent-gold) !important;
+    color: var(--accent-gold) !important;
+    margin-right: 15px;
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.1);
+}
+
+.council-btn:hover {
+    background: rgba(212, 175, 55, 0.1) !important;
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.25) !important;
+}
+
+.council-btn.active {
+    background: var(--accent-gold) !important;
+    color: #000 !important;
+    box-shadow: 0 0 30px rgba(212, 175, 55, 0.5) !important;
+    border-color: #fff !important;
+}
+
+.council-btn.active .button-icon {
+    transform: scale(1.2);
+    filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
 }
 
 /* ==================== */
@@ -629,6 +655,77 @@ details summary:hover {
     }
 }
 
+@keyframes rotate {
+    from {
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
+@keyframes scan {
+
+    0%,
+    100% {
+        top: 0;
+        opacity: 0;
+    }
+
+    50% {
+        top: 100%;
+        opacity: 0.5;
+    }
+}
+
+@keyframes cassandra-breathing {
+
+    0%,
+    100% {
+        filter: drop-shadow(0 0 10px rgba(212, 175, 55, 0.2));
+        transform: scale(1);
+    }
+
+    50% {
+        filter: drop-shadow(0 0 25px rgba(212, 175, 55, 0.6));
+        transform: scale(1.02);
+    }
+}
+
+@keyframes synapse-glow {
+
+    0%,
+    100% {
+        opacity: 0.2;
+    }
+
+    50% {
+        opacity: 0.6;
+        stroke-width: 1.5;
+    }
+}
+
+.brain-grid {
+    animation: cassandra-breathing 4s ease-in-out infinite;
+}
+
+.synapse line {
+    animation: synapse-glow 3s ease-in-out infinite;
+}
+
+.synapse line:nth-child(2) {
+    animation-delay: 0.5s;
+}
+
+.synapse line:nth-child(3) {
+    animation-delay: 1s;
+}
+
+.synapse line:nth-child(4) {
+    animation-delay: 1.5s;
+}
+
 .ai-card {
     animation: fadeIn 0.5s ease forwards;
 }
@@ -690,7 +787,7 @@ details summary:hover {
     padding: 8px 16px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: 1rem;
     font-weight: 600;
     font-family: var(--font-primary);
     transition: all 0.2s ease;
@@ -912,27 +1009,14 @@ details summary:hover {
     transition: 0.3s;
 }
 
-/* Council Button Specifics */
-.council-switch input:checked+.slider {
-    background-color: #ffd700 !important;
+/* Visualize Toggle Specifics */
+#visualToggle:checked+.slider {
+    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%) !important;
 }
 
-.council-switch input:checked+.slider::before {
-    box-shadow: 0 0 10px #ffd700;
-}
-
-.council-switch input:checked~.toggle-label {
-    color: #ffd700;
+#visualToggle:checked~.toggle-label {
+    color: #2575fc;
     font-weight: 700;
-    text-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
-}
-
-.council-switch .toggle-label {
-    transition: color 0.3s ease;
-}
-
-.council-switch:hover .toggle-label {
-    color: #ffd700;
 }
 
 input:checked+.slider {
@@ -944,7 +1028,7 @@ input:checked+.slider::before {
 }
 
 .toggle-label {
-    font-size: 0.9rem;
+    font-size: 1rem;
     color: var(--text-secondary);
     font-weight: 500;
 }
