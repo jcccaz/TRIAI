@@ -679,11 +679,10 @@ The user has uploaded an image. Your PRIMARY MANDATE is to analyze this specific
     
     # 2026 ERA MODELS - STRICT
     # 1.5 and 1.0 are EOL. Using 2.5 series.
-    # 2026 ERA MODELS - STRICT
-    # 1.5 and 1.0 are EOL. Using 2.5 series.
+    # Updated for google-genai SDK compatibility
     models_to_try = [
-        'gemini-1.5-flash',  # Stable, proven model
-        'gemini-1.5-pro'     # Fallback
+        'models/gemini-1.5-flash-latest',  
+        'models/gemini-1.5-pro-latest'
     ]
     
     
