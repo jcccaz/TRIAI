@@ -101,8 +101,31 @@ class ResponseEvaluation(Base):
 
     response = relationship("Response", back_populates="evaluations")
 
+class SystemEvent(Base):
+    __tablename__ = "system_events"
+    id = Column(Integer, primary_key=True, index=True)
+    event_type = Column(String, nullable=False) # STARTUP, CRASH, WORKFLOW_FAIL, RECOVERY
+    message = Column(Text, nullable=False)
+    details = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
 
 # --- Core Functions ---
+
+def log_system_event(event_type: str, message: str, details: str = None):
+    """Persist a system-level event for the dashboard telemetry."""
+    db = SessionLocal()
+    try:
+        event = SystemEvent(
+            event_type=event_type,
+            message=message,
+            details=details
+        )
+        db.add(event)
+        db.commit()
+    except Exception as e:
+        print(f"Failed to log system event: {e}")
+    finally:
+        db.close()
 
 def init_database():
     """Create tables if they don't exist"""
@@ -557,25 +580,42 @@ def get_dashboard_telemetry() -> Dict:
             if p_key in persona_matrix[persona]:
                 persona_matrix[persona][p_key] += count
 
-        # 5. Anomalies Log
-        anomalies_q = db.query(QueryFeedback.gpt_role, QueryFeedback.timestamp, QueryFeedback.feedback_text)\
+        # 5. Anomalies Log (Combine Feedback + System Events)
+        anomaly_log = []
+        
+        # 5a. Get Feedback Anomalies
+        anomalies_q = db.query(QueryFeedback.timestamp, QueryFeedback.feedback_text)\
             .filter((QueryFeedback.hallucinated == True) | (QueryFeedback.mandate_fail == True))\
             .order_by(desc(QueryFeedback.timestamp))\
             .limit(5).all()
-            
-        anomaly_log = []
         for a in anomalies_q:
             anomaly_log.append({
                 "time": a.timestamp.strftime("%I:%M %p"),
                 "type": "HALLUCINATION",
-                "message": f"Flagged: {a.feedback_text[:50] if a.feedback_text else 'Unknown error'}"
+                "message": f"Flagged: {a.feedback_text[:50] if a.feedback_text else 'Feedback provided'}",
+                "ts": a.timestamp
             })
             
+        # 5b. Get System Events (Crashes, Startup)
+        system_events = db.query(SystemEvent).order_by(desc(SystemEvent.timestamp)).limit(5).all()
+        for se in system_events:
+            anomaly_log.append({
+                "time": se.timestamp.strftime("%I:%M %p"),
+                "type": se.event_type,
+                "message": se.message[:60],
+                "ts": se.timestamp
+            })
+            
+        # Sort combined log by timestamp descending
+        anomaly_log.sort(key=lambda x: x['ts'], reverse=True)
+        # Clean up the internal timestamp
+        for item in anomaly_log: del item['ts']
+        
         if not anomaly_log:
             anomaly_log.append({
                 "time": now.strftime("%I:%M %p"),
                 "type": "SYS_EVENT",
-                "message": "System nominal. No active hallucinations detected."
+                "message": "System nominal. No events detected."
             })
 
         return {

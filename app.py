@@ -6,6 +6,7 @@ import os
 import time
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from dotenv import load_dotenv
 
 # Load environment variables from .env file FIRST
@@ -20,7 +21,7 @@ from google import genai
 import requests
 import base64
 from pathlib import Path
-from database import save_comparison, get_recent_comparisons, get_saved_comparisons, mark_as_saved, get_comparison_stats, delete_comparison, save_feedback, get_best_config, get_analytics_summary, update_response_rating
+from database import save_comparison, get_recent_comparisons, get_saved_comparisons, mark_as_saved, get_comparison_stats, delete_comparison, save_feedback, get_best_config, get_analytics_summary, update_response_rating, log_system_event
 from file_processor import process_file
 from project_manager import ProjectManager
 from council_roles import COUNCIL_ROLES, DEFAULT_ASSIGNMENTS
@@ -45,6 +46,16 @@ if app.debug:
 
 # Register Blueprints
 app.register_blueprint(visuals_bp)
+
+# LOG STARTUP
+try:
+    log_system_event(
+        event_type="STARTUP",
+        message="Vantage OS Engine Initialized",
+        details=f"Server started at {datetime.now()} (UTC)"
+    )
+except:
+    pass
 
 # Configure API clients
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', 'your-openai-key-here')
@@ -1567,6 +1578,13 @@ def run_workflow():
                 WORKFLOW_JOBS[jid]["status"] = "failed"
                 WORKFLOW_JOBS[jid]["error"] = str(ex)
                 WORKFLOW_JOBS[jid]["traceback"] = error_trace
+                
+                # PERSIST CRASH TO DASHBOARD
+                log_system_event(
+                    event_type="WORKFLOW_FAIL",
+                    message=f"Mission Failed: {jid[:8]}",
+                    details=f"Error: {str(ex)}\n\nTraceback:\n{error_trace}"
+                )
 
         thread = threading.Thread(target=background_worker, args=(job_id, initial_question, hard_mode, engine))
         thread.start()
