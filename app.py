@@ -643,6 +643,7 @@ The user has uploaded an image. Your PRIMARY MANDATE is to analyze this specific
 def query_google(question, image_data=None, **kwargs):
     """Query Gemini using Legacy SDK (Display: Gemini 3.0)"""
     start_time = time.time()
+    GOOGLE_TIMEOUT = 45  # Hard timeout - kill if no response in 45 seconds
     
 
     # DEFAULT PROMPT: Self-Selecting Expert
@@ -708,22 +709,32 @@ The user has uploaded an image. Your PRIMARY MANDATE is to analyze this specific
         max_retries = 2
         for attempt in range(max_retries + 1):
             try:
-                if image_data:
-                    # New SDK image handling
-                    from google.genai import types
-                    image_part = types.Part.from_bytes(
-                        data=base64.b64decode(image_data),
-                        mime_type="image/jpeg"
-                    )
-                    response = google_client.models.generate_content(
-                        model=model_name,
-                        contents=[prompt_with_reasoning, image_part]
-                    )
-                else:
-                    response = google_client.models.generate_content(
-                        model=model_name,
-                        contents=prompt_with_reasoning
-                    )
+                # Wrap Google call in hard timeout using concurrent.futures
+                from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+
+                def make_google_call():
+                    if image_data:
+                        from google.genai import types
+                        image_part = types.Part.from_bytes(
+                            data=base64.b64decode(image_data),
+                            mime_type="image/jpeg"
+                        )
+                        return google_client.models.generate_content(
+                            model=model_name,
+                            contents=[prompt_with_reasoning, image_part]
+                        )
+                    else:
+                        return google_client.models.generate_content(
+                            model=model_name,
+                            contents=prompt_with_reasoning
+                        )
+
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(make_google_call)
+                    try:
+                        response = future.result(timeout=GOOGLE_TIMEOUT)
+                    except FuturesTimeoutError:
+                        raise Exception(f"Google API timed out after {GOOGLE_TIMEOUT}s - skipping")
                 
                 # Success! Process response
                 elapsed_time = time.time() - start_time
