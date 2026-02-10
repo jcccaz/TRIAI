@@ -1213,14 +1213,7 @@ def ask_all_ais():
     council_mode = request.json.get('council_mode') if request.is_json else (request.form.get('council_mode') == 'true')
 
     results_map = {"openai": r1, "anthropic": r2, "google": r3, "perplexity": r4}
-
-    # Skip consensus in council mode to reduce response time (4 advisors is enough)
-    # User can re-enable by setting skip_consensus=false
-    skip_consensus = request.json.get('skip_consensus', council_mode) if request.is_json else council_mode
-    if skip_consensus:
-        consensus = "Council Mode: Review individual advisor responses above." if council_mode else None
-    else:
-        consensus = generate_consensus(question, results_map, podcast_mode=podcast_mode, council_mode=council_mode)
+    consensus = generate_consensus(question, results_map, podcast_mode=podcast_mode, council_mode=council_mode)
 
     try:
         cid = save_comparison(question, results_map)
