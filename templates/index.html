@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vantage OS - Governed Multi-Model Intelligence</title>
     <meta name="description" content="Compare responses from OpenAI, Anthropic, Google, and Perplexity AI side-by-side">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=v1.1.2">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/history_video.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/role_selectors.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/enforcement.css') }}">
@@ -368,13 +368,6 @@
                             <input type="checkbox" id="hardModeToggle">
                             <span class="slider round"></span>
                             <span class="toggle-label">Hard Mode ⚡</span>
-                        </label>
-                        <!-- WORKFLOW MODE TOGGLE -->
-                        <label class="toggle-switch" title="Execute multi-step industrial workflows">
-                            <input type="checkbox" id="workflowToggle">
-                            <span class="slider round"></span>
-                            <span class="toggle-label">Workflow 🌊</span>
-                        </label>
                     </div>
 
                     <!-- Workflow Template Selector (Hidden by default) -->
@@ -383,6 +376,8 @@
                         <select id="workflowSelect" class="role-dropdown">
                             <option value="">-- Choose a workflow --</option>
                         </select>
+                        <!-- Workflow Step Preview Area -->
+                        <div id="workflowPreview" class="workflow-preview hidden"></div>
                     </div>
 
                     <button id="micBtn" class="icon-button" title="Voice Input">
@@ -405,8 +400,14 @@
                         <span class="button-text">Ask All AIs</span>
                         <span class="button-icon">→</span>
                     </button>
+                    <button id="workflowToggleBtn" class="ask-button secondary-btn workflow-btn"
+                        title="Execute multi-step industrial workflows">
+                        <span class="button-text">Initiate Workflow</span>
+                        <span class="button-icon">🌊</span>
+                    </button>
                 </div>
             </div>
+
         </section>
 
         <!-- Mermaid for Charts -->
@@ -797,12 +798,16 @@
                 <a class="tri-modal-jump-link" id="triModalJumpLink" style="display:none;" onclick="jumpToSource()">
                     Jump to source in card
                 </a>
-                <button class="tri-modal-btn tri-modal-btn-close" onclick="closeInterrogation()">Close</button>
+                <div id="triModalFooter" class="tri-modal-footer">
+                    <button class="tri-modal-btn tri-modal-btn-close" onclick="closeInterrogation()">Close</button>
+                    <button id="triModalFireBtn" class="tri-modal-btn tri-modal-btn-fire" style="display:none;">Launch
+                        Interrogation</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='app.js') }}?v=v10004"></script>
+    <script src="{{ url_for('static', filename='app.js') }}?v=v1.1.2"></script>
     <script>
         // ============================================
         // TriAI Interrogation Modal Controller
@@ -813,7 +818,8 @@
             claim: null,
             violationType: null,
             cardElement: null,
-            violationElement: null
+            violationElement: null,
+            lastResponse: null
         };
 
         function capitalize(str) {
@@ -834,8 +840,8 @@
             return icons[aiName.toLowerCase()] || 'Robot';
         }
 
-        function openInterrogation({ aiName, claim, violationType, cardElement }) {
-            currentInterrogation = { aiName, claim, violationType, cardElement };
+        window.openInterrogation = function ({ aiName, claim, violationType, cardElement, workflowText = null }) {
+            currentInterrogation = { aiName, claim, violationType, cardElement, workflowText };
 
             const overlay = document.getElementById('triInterrogationModal');
             const body = document.getElementById('triModalBody');
@@ -846,15 +852,31 @@
                 ${capitalize(aiName)}
             </span>
             <div class="tri-modal-violation-type">${violationType}</div>
-            <div class="tri-modal-claim">
-                <div class="tri-modal-claim-label">Flagged Claim</div>
-                "${claim}"
+            <div class="tri-modal-claim" style="margin-bottom: 15px;">
+                <div class="tri-modal-claim-label">Context / Flagged Claim</div>
+                <div style="font-style: italic; color: #aaa;">"${claim}"</div>
             </div>
-            <div class="tri-modal-loading" id="triModalLoading">
+            
+            <div class="tri-modal-input-area" id="triModalInputArea">
+                <div class="tri-modal-claim-label">Interrogation Question / Critique</div>
+                <textarea id="triModalQuestion" class="tri-modal-textarea" placeholder="Paste Perplexity's critique here or ask your own question...">${violationType === 'DEEP INTERROGATION' ? 'The Critic (Perplexity) found major failures in your output. Review the critique and provide a corrected version that addresses these violations.' : `Verify this specific claim: "${claim}"`}</textarea>
+            </div>
+
+            <div class="tri-modal-loading" id="triModalLoading" style="display:none;">
                 <div class="tri-modal-spinner"></div>
                 <div class="tri-modal-loading-text">Interrogating ${capitalize(aiName)}...</div>
             </div>
         `;
+
+            const fireBtn = document.getElementById('triModalFireBtn');
+            fireBtn.style.display = 'block';
+            fireBtn.onclick = () => {
+                const question = document.getElementById('triModalQuestion').value;
+                document.getElementById('triModalInputArea').style.display = 'none';
+                document.getElementById('triModalLoading').style.display = 'block';
+                fireBtn.style.display = 'none';
+                fireInterrogationRequest(aiName, claim, workflowText, question);
+            };
 
             jumpLink.style.display = 'none';
             overlay.classList.add('active');
@@ -865,11 +887,10 @@
             };
             document.addEventListener('keydown', handleEscape);
 
-            // Call the interrogation API
-            fireInterrogationRequest(aiName, claim);
+            // Manual trigger now handles the fire call via fireBtn
         }
 
-        async function fireInterrogationRequest(aiName, claim) {
+        async function fireInterrogationRequest(aiName, claim, workflowText = null, customQuestion = null) {
             const modelMap = {
                 'openai': 'openai',
                 'anthropic': 'anthropic',
@@ -879,8 +900,13 @@
             const modelType = modelMap[aiName.toLowerCase()] || aiName.toLowerCase();
 
             // Get the AI's full response for context
-            const responseEl = document.getElementById(`${modelType}-response`);
-            const previousResponse = responseEl ? responseEl.innerText : '';
+            let previousResponse = '';
+            if (workflowText) {
+                previousResponse = workflowText;
+            } else {
+                const responseEl = document.getElementById(`${modelType}-response`);
+                previousResponse = responseEl ? responseEl.innerText : '';
+            }
 
             try {
                 const response = await fetch('/interrogate', {
@@ -888,7 +914,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         model: modelType,
-                        question: `Verify this claim: "${claim}"`,
+                        question: customQuestion || `Verify this claim: "${claim}"`,
                         previous_response: previousResponse,
                         selected_text: claim
                     })
@@ -962,18 +988,27 @@
                 : result.credibilityScore >= 40 ? 'medium'
                     : 'low';
 
+            currentInterrogation.lastResponse = result.response;
+            const hasHTML = result.response.includes('```html') || result.response.includes('<!DOCTYPE') || result.response.includes('<div');
+
             loading.outerHTML = `
             <div class="tri-modal-result ${status}">
                 <div class="tri-modal-result-header ${status}">
                     ${statusLabel}
                 </div>
-                <div>${result.response}</div>
+                <div id="interrogationResponseContainer">${result.response}</div>
                 ${result.penalty && result.penalty < 0 ? `
                     <div style="margin-top: 10px; font-size: 12px; color: #ff8888;">
                         Credibility Penalty: ${result.penalty} points
                     </div>
                 ` : ''}
             </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="tri-modal-btn tri-modal-btn-fire" onclick="applyInterrogationFix()">Apply Correction to Card</button>
+                ${hasHTML ? `<button class="tri-modal-btn" style="background:#555; color:#fff;" onclick="previewInterrogationCorrection()">Preview Correction</button>` : ''}
+            </div>
+
             <div class="tri-modal-credibility">
                 <div class="tri-modal-score ${scoreClass}">${result.credibilityScore}</div>
                 <div>
@@ -1076,6 +1111,44 @@
                 });
             }
         }, true); // Use capture to intercept before other handlers
+
+        window.applyInterrogationFix = function () {
+            if (!currentInterrogation.lastResponse || !currentInterrogation.cardElement) return;
+
+            const card = currentInterrogation.cardElement;
+            const stepId = card.id.replace('step-card-', '');
+            const newContent = currentInterrogation.lastResponse;
+
+            // This global exists in app.js
+            if (typeof workflowContext !== 'undefined') {
+                // Find the key for this step
+                const stepKey = card.dataset.stepKey || `step_${stepId}`;
+                workflowContext[stepKey] = newContent;
+
+                // Update UI
+                const responseDiv = card.querySelector('.step-response');
+                if (responseDiv && typeof formatMarkdown === 'function') {
+                    responseDiv.innerHTML = formatMarkdown(newContent);
+                    alert("Correction applied to workflow context.");
+                    closeInterrogation();
+                }
+            }
+        };
+
+        window.previewInterrogationCorrection = function () {
+            let content = currentInterrogation.lastResponse || "";
+
+            // Extract code if in markdown blocks
+            if (content.includes("```html")) {
+                content = content.split("```html")[1].split("```")[0];
+            } else if (content.includes("```")) {
+                content = content.split("```")[1].split("```")[0];
+            }
+
+            const blob = new Blob([content], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+        };
 
         // Restore violation item after interrogation completes
         function restoreViolationItem() {

@@ -82,6 +82,15 @@
         .font-mono-tech {
             font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
         }
+
+        /* Spinning Pyramid */
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .spin-slow {
+            animation: spin-slow 8s linear infinite;
+        }
     </style>
     <script>
         tailwind.config = {
@@ -171,8 +180,8 @@
         <div class="flex items-center gap-6">
             <!-- Logo -->
             <div class="flex items-center gap-2 font-bold tracking-widest text-triai-gold uppercase text-sm">
-                <i data-lucide="pyramid" class="w-5 h-5 text-triai-teal"></i>
-                TriAI <span class="text-slate-600">►</span> Control
+                <i data-lucide="pyramid" class="w-5 h-5 text-triai-teal spin-slow"></i>
+                VANTAGE OS <span class="text-slate-600">►</span> Control
             </div>
 
             <div class="h-4 w-px bg-white/10"></div>
@@ -364,17 +373,114 @@
             </div>
         </div>
 
-        <!-- 💸 ROW 3: COST CHART (Col 1-9) -->
-        <div class="col-span-12 lg:col-span-9 row-span-4 glass-panel p-5 relative overflow-hidden">
-            <div class="flex justify-between items-center mb-2 z-10 relative">
-                <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-widest">Cost per Prompt (7d)</h3>
-                <div class="flex gap-2">
-                    <button class="px-2 py-1 bg-white/5 text-xs text-white rounded hover:bg-white/10">7D</button>
-                    <button class="px-2 py-1 text-xs text-slate-600 hover:text-white">30D</button>
+        <!-- 💸 ROW 3: COST BY PROVIDER + MODEL LEADERBOARD (Col 1-9) -->
+        <div class="col-span-12 lg:col-span-9 row-span-4 grid grid-cols-2 gap-4">
+            <!-- Cost by Provider -->
+            <div class="glass-panel p-5 relative overflow-hidden">
+                <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-4">Cost by Provider (7d)</h3>
+                <div class="space-y-3" id="cost-by-provider">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                            <span class="text-sm text-slate-300">OpenAI</span>
+                        </div>
+                        <span class="text-sm font-mono text-triai-gold" id="cost-openai">$0.00</span>
+                    </div>
+                    <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-full bg-green-500 transition-all duration-500" id="bar-openai" style="width: 0%"></div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-orange-500"></div>
+                            <span class="text-sm text-slate-300">Anthropic</span>
+                        </div>
+                        <span class="text-sm font-mono text-triai-gold" id="cost-anthropic">$0.00</span>
+                    </div>
+                    <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-full bg-orange-500 transition-all duration-500" id="bar-anthropic" style="width: 0%"></div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                            <span class="text-sm text-slate-300">Google</span>
+                        </div>
+                        <span class="text-sm font-mono text-slate-500" id="cost-google">FREE</span>
+                    </div>
+                    <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-full bg-blue-500 transition-all duration-500" id="bar-google" style="width: 0%"></div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-purple-500"></div>
+                            <span class="text-sm text-slate-300">Perplexity</span>
+                        </div>
+                        <span class="text-sm font-mono text-triai-gold" id="cost-perplexity">$0.00</span>
+                    </div>
+                    <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-full bg-purple-500 transition-all duration-500" id="bar-perplexity" style="width: 0%"></div>
+                    </div>
                 </div>
             </div>
-            <div class="w-full h-[90%] z-0">
-                <canvas id="costChart"></canvas>
+
+            <!-- Model Leaderboard -->
+            <div class="glass-panel p-5 relative overflow-hidden">
+                <h3 class="text-sm font-semibold text-triai-gold uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <i data-lucide="trophy" class="w-4 h-4"></i> Model Leaderboard
+                </h3>
+                <div class="space-y-3" id="model-leaderboard">
+                    <div class="flex items-center justify-between p-2 rounded bg-white/[0.02] border border-white/5 hover:border-triai-gold/30 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="text-lg font-bold text-triai-gold">1</span>
+                            <div>
+                                <div class="text-white text-sm font-medium" id="leader-1-name">--</div>
+                                <div class="text-[11px] text-slate-500" id="leader-1-count">0 ratings</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xl font-mono text-triai-teal" id="leader-1-score">--</div>
+                            <div class="text-[10px] text-slate-600">AVG RATING</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between p-2 rounded bg-white/[0.02] border border-white/5">
+                        <div class="flex items-center gap-3">
+                            <span class="text-lg font-bold text-slate-400">2</span>
+                            <div>
+                                <div class="text-white text-sm font-medium" id="leader-2-name">--</div>
+                                <div class="text-[11px] text-slate-500" id="leader-2-count">0 ratings</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xl font-mono text-slate-300" id="leader-2-score">--</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between p-2 rounded bg-white/[0.02] border border-white/5">
+                        <div class="flex items-center gap-3">
+                            <span class="text-lg font-bold text-amber-700">3</span>
+                            <div>
+                                <div class="text-white text-sm font-medium" id="leader-3-name">--</div>
+                                <div class="text-[11px] text-slate-500" id="leader-3-count">0 ratings</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xl font-mono text-slate-400" id="leader-3-score">--</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between p-2 rounded bg-white/[0.02] border border-white/5">
+                        <div class="flex items-center gap-3">
+                            <span class="text-lg font-bold text-slate-600">4</span>
+                            <div>
+                                <div class="text-white text-sm font-medium" id="leader-4-name">--</div>
+                                <div class="text-[11px] text-slate-500" id="leader-4-count">0 ratings</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xl font-mono text-slate-500" id="leader-4-score">--</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -570,6 +676,64 @@
                         }
                     }
 
+                    // 💰 Render Cost by Provider
+                    if (data.cost_by_provider) {
+                        const costs = data.cost_by_provider;
+                        const maxCost = Math.max(costs.openai || 0, costs.anthropic || 0, costs.google || 0, costs.perplexity || 0, 0.01);
+
+                        ['openai', 'anthropic', 'google', 'perplexity'].forEach(provider => {
+                            const costEl = document.getElementById(`cost-${provider}`);
+                            const barEl = document.getElementById(`bar-${provider}`);
+                            const cost = costs[provider] || 0;
+
+                            if (costEl) {
+                                if (provider === 'google') {
+                                    costEl.innerText = 'FREE';
+                                } else {
+                                    costEl.innerText = '$' + cost.toFixed(3);
+                                }
+                            }
+                            if (barEl) {
+                                const pct = (cost / maxCost) * 100;
+                                barEl.style.width = pct + '%';
+                            }
+                        });
+                    }
+
+                    // 🏆 Render Model Leaderboard
+                    if (data.model_leaderboard) {
+                        const lb = data.model_leaderboard;
+                        const modelNames = {
+                            'openai': 'OpenAI GPT',
+                            'anthropic': 'Anthropic Claude',
+                            'google': 'Google Gemini',
+                            'perplexity': 'Perplexity Pro'
+                        };
+
+                        // Sort by avg_rating descending
+                        const sorted = Object.entries(lb)
+                            .map(([key, val]) => ({ key, ...val, displayName: modelNames[key] || key }))
+                            .sort((a, b) => (b.avg_rating || 0) - (a.avg_rating || 0));
+
+                        // Fill in leaderboard slots
+                        for (let i = 0; i < 4; i++) {
+                            const entry = sorted[i];
+                            const nameEl = document.getElementById(`leader-${i+1}-name`);
+                            const scoreEl = document.getElementById(`leader-${i+1}-score`);
+                            const countEl = document.getElementById(`leader-${i+1}-count`);
+
+                            if (entry && entry.rated_count > 0) {
+                                if (nameEl) nameEl.innerText = entry.displayName;
+                                if (scoreEl) scoreEl.innerText = entry.avg_rating.toFixed(1);
+                                if (countEl) countEl.innerText = `${entry.rated_count} ratings`;
+                            } else {
+                                if (nameEl) nameEl.innerText = modelNames[['openai', 'anthropic', 'google', 'perplexity'][i]] || '--';
+                                if (scoreEl) scoreEl.innerText = '--';
+                                if (countEl) countEl.innerText = 'No ratings yet';
+                            }
+                        }
+                    }
+
                 })
                 .catch(err => console.error("Telemetry fetch failed", err));
         }
@@ -579,44 +743,8 @@
         // Refresh every 10 seconds
         setInterval(updateDashboard, 10000);
 
-        // Chart Setup (Gold/Teal Theme)
-        const ctx = document.getElementById('costChart').getContext('2d');
-        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, 'rgba(212, 180, 131, 0.2)'); // Gold
-        gradient.addColorStop(1, 'rgba(212, 180, 131, 0)');
-
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: ['Apr 17', 'Apr 18', 'Apr 19', 'Apr 20', 'Apr 21', 'Apr 22', 'Apr 23'],
-                datasets: [{
-                    data: [0.018, 0.015, 0.022, 0.019, 0.028, 0.035, 0.029],
-                    borderColor: '#d4b483', // Gold
-                    backgroundColor: gradient,
-                    borderWidth: 1.5,
-                    pointRadius: 2,
-                    pointBackgroundColor: '#050505',
-                    pointBorderColor: '#d4b483',
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: {
-                        grid: { color: 'rgba(255,255,255,0.05)' },
-                        ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 9 }, callback: (val) => '$' + val }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 9 } }
-                    }
-                }
-            }
-        });
+        // Reinitialize Lucide icons after dynamic content loads
+        setTimeout(() => lucide.createIcons(), 500);
     </script>
 </body>
 

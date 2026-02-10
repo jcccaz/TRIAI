@@ -60,7 +60,7 @@ const podcastToggle = document.getElementById('podcastToggle');
 const visualToggle = document.getElementById('visualToggle');
 const councilToggleBtn = document.getElementById('councilToggleBtn');
 const hardModeToggle = document.getElementById('hardModeToggle');
-const workflowToggle = document.getElementById('workflowToggle');
+const workflowToggleBtn = document.getElementById('workflowToggleBtn');
 const workflowArea = document.getElementById('workflowArea');
 const workflowSelect = document.getElementById('workflowSelect');
 const workflowResultsSection = document.getElementById('workflowResultsSection');
@@ -76,11 +76,15 @@ const editStepTextArea = document.getElementById('editStepTextArea');
 const saveStepEditBtn = document.getElementById('saveStepEditBtn');
 const cancelStepEditBtn = document.getElementById('cancelStepEditBtn');
 const closeModalBtn = document.querySelector('.close-modal');
+const workflowPreview = document.getElementById('workflowPreview');
 
+let globalWorkflows = null;
 let currentWorkflowData = null;
+let workflowModeActive = false;
 let workflowIsPaused = false;
 let currentStepIndex = 0;
 let workflowContext = {};
+let currentJobId = null;
 let currentWorkflowResults = []; // Store full step results globally
 let editingStepId = null;
 
@@ -208,6 +212,9 @@ function toggleCouncilMode() {
     councilModeActive = !councilModeActive;
 
     if (councilModeActive) {
+        // Turn off workflow if it's on
+        if (workflowModeActive) toggleWorkflowMode();
+
         councilToggleBtn.classList.add('active');
         councilToggleBtn.querySelector('.button-text').textContent = 'Council Active';
         document.getElementById('roleSelectors').classList.remove('hidden');
@@ -217,6 +224,26 @@ function toggleCouncilMode() {
         councilToggleBtn.querySelector('.button-text').textContent = 'Assemble Council';
         document.getElementById('roleSelectors').classList.add('hidden');
         document.getElementById('roleRecommendation').classList.add('hidden');
+    }
+}
+
+function toggleWorkflowMode() {
+    workflowModeActive = !workflowModeActive;
+
+    if (workflowModeActive) {
+        // Turn off council if it's on
+        if (councilModeActive) toggleCouncilMode();
+
+        workflowToggleBtn.classList.add('active');
+        workflowToggleBtn.querySelector('.button-text').textContent = 'Workflow Active';
+        workflowArea.classList.remove('hidden');
+        resultsSection.classList.add('hidden');
+        consensusSection.classList.add('hidden');
+    } else {
+        workflowToggleBtn.classList.remove('active');
+        workflowToggleBtn.querySelector('.button-text').textContent = 'Initiate Workflow';
+        workflowArea.classList.add('hidden');
+        workflowResultsSection.classList.add('hidden');
     }
 }
 
@@ -545,20 +572,21 @@ function applyRecommendation() {
     });
 }
 
-// Card Rating Logic
-document.querySelectorAll('.card-rate-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        const ratingDiv = btn.closest('.card-rating');
-        const aiProvider = ratingDiv.dataset.ai;
-        const isUp = btn.classList.contains('up');
-        const rating = isUp ? 1 : -1;
+// Card Rating Logic (Event Delegation)
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.card-rate-btn');
+    if (!btn) return;
 
-        // Toggle Active Stats
-        ratingDiv.querySelectorAll('.card-rate-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+    const ratingDiv = btn.closest('.card-rating');
+    const aiProvider = ratingDiv.dataset.ai;
+    const isUp = btn.classList.contains('up');
+    const rating = isUp ? 1 : -1;
 
-        submitResponseRating(aiProvider, rating);
-    });
+    // Toggle Active Stats
+    ratingDiv.querySelectorAll('.card-rate-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    submitResponseRating(aiProvider, rating);
 });
 
 async function submitResponseRating(aiProvider, rating) {
@@ -690,7 +718,7 @@ async function handleAskAllAIs(forcedVisualize = false) {
         return;
     }
 
-    if (workflowToggle && workflowToggle.checked) {
+    if (workflowModeActive) {
         runWorkflowMode();
         return;
     }
@@ -1904,7 +1932,7 @@ async function reSynthesizeConsensus() {
                 question: question,
                 responses: responsesMap,
                 credibility: credibilityMap,
-                council_mode: councilToggle.checked
+                council_mode: councilModeActive
             })
         });
 
@@ -2895,13 +2923,7 @@ function showChartModal(chartUrl, provider, mermaidSyntax = null) {
 const roleSelectors = document.getElementById('roleSelectors');
 
 // Show/Hide role selectors when Council Mode is toggled
-councilToggle.addEventListener('change', () => {
-    if (councilToggle.checked) {
-        roleSelectors.classList.remove('hidden');
-    } else {
-        roleSelectors.classList.add('hidden');
-    }
-});
+// Show/Hide role selectors is handled by toggleCouncilMode()
 
 // Function to get current role assignments
 function getCouncilRoles() {
@@ -2939,6 +2961,7 @@ async function fetchWorkflows() {
     try {
         const response = await fetch('/api/workflows');
         const workflows = await response.json();
+        globalWorkflows = workflows; // Cache it globally
 
         workflowSelect.innerHTML = '<option value="">-- Choose a workflow --</option>';
 
@@ -2953,24 +2976,53 @@ async function fetchWorkflows() {
             option.textContent = workflows[id].name;
             workflowSelect.appendChild(option);
         });
+
+        // Add Change Listener for Preview
+        workflowSelect.addEventListener('change', updateWorkflowPreview);
+
     } catch (err) {
         console.error('Error fetching workflows:', err);
     }
 }
 
+function updateWorkflowPreview() {
+    const workflowId = workflowSelect.value;
+    if (!workflowId || !globalWorkflows || !globalWorkflows[workflowId]) {
+        workflowPreview.classList.add('hidden');
+        workflowPreview.innerHTML = '';
+        return;
+    }
+
+    const workflow = globalWorkflows[workflowId];
+    workflowPreview.classList.remove('hidden');
+
+    let html = `
+        <div class="workflow-preview-header">
+            Council Persona Sequence & Pipeline:
+        </div>
+        <div class="workflow-preview-steps">
+    `;
+
+    workflow.steps.forEach((step, index) => {
+        const modelClass = `model-${step.model.toLowerCase()}`;
+        html += `
+            <div class="preview-step">
+                <span class="step-num">#${step.id}</span>
+                <span class="step-persona">${step.role.toUpperCase()}</span>
+                <span class="step-model ${modelClass}">${step.model}</span>
+            </div>
+        `;
+    });
+
+    html += '</div>';
+    workflowPreview.innerHTML = html;
+}
+
 fetchWorkflows();
 
-workflowToggle.addEventListener('change', () => {
-    if (workflowToggle.checked) {
-        workflowArea.classList.remove('hidden');
-        if (councilToggle.checked) councilToggle.click();
-        resultsSection.classList.add('hidden');
-        consensusSection.classList.add('hidden');
-    } else {
-        workflowArea.classList.add('hidden');
-        workflowResultsSection.classList.add('hidden');
-    }
-});
+if (workflowToggleBtn) {
+    workflowToggleBtn.addEventListener('click', toggleWorkflowMode);
+}
 
 // Pause/Stop Workflow Logic
 if (pauseWorkflowBtn) {
@@ -3036,6 +3088,7 @@ async function runWorkflowMode() {
         if (initData.error) throw new Error(initData.error);
 
         const jobId = initData.job_id;
+        currentJobId = jobId;
         console.log(`Workflow started: ${jobId} `);
 
         // Load template for metadata
@@ -3089,7 +3142,7 @@ function pollWorkflowStatus(jobId) {
                     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 
                     renderedStepIds.add(step.step);
-                    workflowContext[step.key || `step_${step.step} `] = step.data.response;
+                    workflowContext[step.key || `step_${step.step}`] = step.data.response;
                 }
             });
 
@@ -3100,6 +3153,7 @@ function pollWorkflowStatus(jobId) {
 
             if (data.status === 'complete') {
                 clearInterval(interval);
+                if (data.comparison_id) currentComparisonId = data.comparison_id;
                 finishWorkflow();
             } else if (data.status === 'failed') {
                 clearInterval(interval);
@@ -3115,8 +3169,9 @@ function pollWorkflowStatus(jobId) {
 
 function createStepCard(step) {
     const card = document.createElement('div');
-    card.id = `step - card - ${step.step} `;
+    card.id = `step-card-${step.step}`;
     card.className = 'workflow-step-card';
+    card.dataset.stepKey = step.key || `step_${step.step}`;
     const colors = getModelColors(step.model);
     card.style.setProperty('--step-color', colors.hex);
 
@@ -3133,9 +3188,15 @@ function createStepCard(step) {
             <div class="status-badge ${statusClass}">${statusText}</div>
             <div class="step-id">STEP ${step.step}: ${step.role.toUpperCase()}</div>
             <div class="step-actions">
+                ${step.data.response.includes('<!DOCTYPE') || step.data.response.includes('<div') || step.data.response.includes('<html') ?
+            `<button class="step-btn preview-step-trigger" data-step="${step.step}">Live Preview</button>` : ''}
                 <button class="step-btn interrogate-step-trigger" data-model="${step.model}" data-step="${step.step}" data-role="${step.role}">Interrogate</button>
                 <button class="step-btn" onclick="openEditModal('${step.key}', ${step.step})">Edit Output</button>
-                <button class="step-btn" onclick="copyToClipboard(this, \`${step.data.response.replace(/`/g, '\\`')}\`)">Copy</button>
+                <button class="step-btn workflow-copy-btn">Copy</button>
+            </div>
+            <div class="card-rating" data-ai="${step.model}">
+                <button class="card-rate-btn up" title="Helpful answer">👍</button>
+                <button class="card-rate-btn down" title="Generic or unhelpful">👎</button>
             </div>
         </div>
         <div class="step-header">
@@ -3144,7 +3205,49 @@ function createStepCard(step) {
         <div class="step-instruction">Objective: ${instruction}</div>
         <div class="step-enforcement-area"></div>
         <div class="step-response">${formatMarkdown(step.data.response)}</div>
-`;
+    `;
+
+    // Attach Preview Logic
+    const previewBtn = card.querySelector('.preview-step-trigger');
+    if (previewBtn) {
+        previewBtn.addEventListener('click', () => {
+            if (currentJobId) {
+                window.open(`/workflow/preview/${currentJobId}/${step.step}`, '_blank');
+            } else {
+                alert('No active job ID found.');
+            }
+        });
+    }
+
+    // Attach Interrogation Logic
+    const interrogateBtn = card.querySelector('.interrogate-step-trigger');
+    if (interrogateBtn) {
+        interrogateBtn.addEventListener('click', () => {
+            const responseText = card.querySelector('.step-response').innerText;
+            const interrogationFunc = window.openInterrogation || typeof openInterrogation !== 'undefined' ? openInterrogation : null;
+
+            if (interrogationFunc) {
+                interrogationFunc({
+                    aiName: step.model,
+                    claim: "Manual interrogation of workflow step output.",
+                    violationType: 'DEEP INTERROGATION',
+                    cardElement: card,
+                    workflowText: responseText
+                });
+            } else {
+                console.error("Interrogation function not found on window or scope.");
+                alert('Interrogation system not initialized.');
+            }
+        });
+    }
+
+    // Attach response data safely for the copy button
+    const copyBtn = card.querySelector('.workflow-copy-btn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+            copyToClipboard(copyBtn, step.data.response);
+        });
+    }
 
     // Render Enforcement Report if available
     if (step.data.enforcement) {
@@ -3223,12 +3326,12 @@ window.openEditModal = function (key, stepId) {
 saveStepEditBtn.addEventListener('click', () => {
     const newContent = editStepTextArea.value;
     const templateStep = currentWorkflowData.steps.find(s => s.id === editingStepId);
-    const key = templateStep ? templateStep.key : `step_${editingStepId} `;
+    const key = templateStep ? templateStep.key : `step_${editingStepId}`;
 
     workflowContext[key] = newContent;
 
     // Update the UI card as well
-    const card = document.getElementById(`step - card - ${editingStepId} `);
+    const card = document.getElementById(`step-card-${editingStepId}`);
     if (card) {
         const responseDiv = card.querySelector('.step-response');
         responseDiv.innerHTML = formatMarkdown(newContent);

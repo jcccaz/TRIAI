@@ -302,10 +302,33 @@ body {
     border-color: #fff !important;
 }
 
-.council-btn.active .button-icon {
+.workflow-btn {
+    background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%) !important;
+    border: 1px solid var(--accent-gold) !important;
+    color: var(--accent-gold) !important;
+    margin-left: 15px;
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.1);
+}
+
+.workflow-btn:hover {
+    background: rgba(212, 175, 55, 0.1) !important;
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.25) !important;
+}
+
+.workflow-btn.active {
+    background: var(--accent-gold) !important;
+    color: #000 !important;
+    box-shadow: 0 0 30px rgba(212, 175, 55, 0.5) !important;
+    border-color: #fff !important;
+}
+
+
+.council-btn.active .button-icon,
+.workflow-btn.active .button-icon {
     transform: scale(1.2);
     filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
 }
+
 
 /* ==================== */
 /* Loading State */
@@ -2113,5 +2136,352 @@ footer {
 
     100% {
         opacity: 0.8;
+    }
+}
+
+/* Workflow Preview Styling */
+.workflow-preview {
+    margin-top: 15px;
+    padding: 15px;
+    background: rgba(15, 15, 17, 0.8);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    width: 100%;
+}
+
+.workflow-preview.hidden {
+    display: none;
+}
+
+.workflow-preview-header {
+    font-size: 0.8rem;
+    color: var(--accent-gold);
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+}
+
+.workflow-preview-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.preview-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 2px solid var(--accent-gold);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+}
+
+.preview-step .step-num {
+    color: var(--accent-gold);
+    font-weight: bold;
+    min-width: 25px;
+}
+
+.preview-step .step-persona {
+    color: #fff;
+    flex: 1;
+}
+
+.preview-step .step-model {
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 2px;
+    text-transform: uppercase;
+}
+
+.preview-step .model-openai {
+    background: rgba(16, 163, 127, 0.2);
+    color: #10a37f;
+    border: 1px solid rgba(16, 163, 127, 0.3);
+}
+
+.preview-step .model-anthropic {
+    background: rgba(249, 115, 22, 0.2);
+    color: #f97316;
+    border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.preview-step .model-google {
+    background: rgba(234, 179, 8, 0.2);
+    color: #eab308;
+    border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.preview-step .model-perplexity {
+    background: rgba(6, 182, 212, 0.2);
+    color: #06b6d4;
+    border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+/* Workflow Selection Visibility Enhancements */
+#workflowArea .section-label {
+    color: var(--accent-gold) !important;
+    font-weight: 700;
+}
+
+#workflowSelect {
+    color: var(--accent-gold) !important;
+    border-color: rgba(212, 175, 55, 0.5) !important;
+    font-weight: 600;
+}
+
+#workflowSelect option {
+    color: var(--text-primary);
+    /* Keep standard color for options list */
+    background: var(--bg-card);
+}
+
+/* Style for missing/placeholder images in workflow results */
+.step-response img {
+    border: 1px dashed var(--accent-gold);
+    background: rgba(212, 175, 55, 0.05);
+    padding: 20px;
+    min-width: 200px;
+    min-height: 100px;
+    display: block;
+    margin: 10px auto;
+}
+
+/* Upgraded Interrogation Modal Styles */
+.tri-modal-textarea {
+    width: 100%;
+    min-height: 120px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--accent-gold);
+    border-radius: var(--radius-sm);
+    color: #fff;
+    padding: 12px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    margin-top: 10px;
+    resize: vertical;
+    outline: none;
+}
+
+.tri-modal-textarea:focus {
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+}
+
+.tri-modal-btn-fire {
+    background: var(--accent-gold) !important;
+    color: #000 !important;
+    font-weight: bold;
+}
+
+.tri-modal-btn-fire:hover {
+    background: #fff !important;
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
+}
+
+.tri-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Core Interrogation Modal Overlay */
+.tri-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.tri-modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.tri-modal {
+    background: #0a0a0a;
+    width: 90%;
+    max-width: 600px;
+    border: 1px solid var(--accent-gold);
+    border-radius: var(--radius-md);
+    box-shadow: 0 0 50px rgba(212, 175, 55, 0.2);
+    display: flex;
+    flex-direction: column;
+    max-height: 85vh;
+    animation: modalSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalSlide {
+    from {
+        transform: translateY(30px) scale(0.95);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+.tri-modal-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.tri-modal-header h3 {
+    margin: 0;
+    color: var(--accent-gold);
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.tri-modal-close {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.5rem;
+    cursor: pointer;
+    opacity: 0.5;
+}
+
+.tri-modal-close:hover {
+    opacity: 1;
+}
+
+.tri-modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.tri-modal-ai-badge {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 15px;
+    display: inline-block;
+}
+
+.tri-modal-ai-badge.anthropic {
+    background: rgba(160, 82, 45, 0.2);
+    color: #cd853f;
+    border: 1px solid #a0522d;
+}
+
+.tri-modal-ai-badge.openai {
+    background: rgba(34, 139, 34, 0.2);
+    color: #32cd32;
+    border: 1px solid #228b22;
+}
+
+.tri-modal-ai-badge.google {
+    background: rgba(30, 144, 255, 0.2);
+    color: #1e90ff;
+    border: 1px solid #4169e1;
+}
+
+.tri-modal-claim-label {
+    font-size: 11px;
+    color: var(--accent-gold);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    font-weight: bold;
+}
+
+/* Reusing the previous styles for textarea and footer */
+.tri-modal-textarea {
+    width: 100%;
+    min-height: 120px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--accent-gold);
+    border-radius: var(--radius-sm);
+    color: #fff;
+    padding: 12px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    margin-top: 10px;
+    resize: vertical;
+    outline: none;
+}
+
+.tri-modal-textarea:focus {
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+}
+
+.tri-modal-btn {
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.tri-modal-btn-close {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.tri-modal-btn-fire {
+    background: var(--accent-gold);
+    color: #000;
+    font-weight: bold;
+}
+
+.tri-modal-btn-fire:hover {
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
+    transform: translateY(-2px);
+}
+
+.tri-modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.tri-modal-loading {
+    text-align: center;
+    padding: 20px;
+}
+
+.tri-modal-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(212, 175, 55, 0.1);
+    border-top: 3px solid var(--accent-gold);
+    border-radius: 50%;
+    margin: 0 auto 15px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
     }
 }

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, render_template_string
 from flask_cors import CORS
 from flask_basicauth import BasicAuth
 from typing import Tuple, List, Optional
@@ -1573,13 +1573,14 @@ def run_workflow():
                     }
                     
                     # SAVE FULL HISTORY to document_content so it's retrievable
-                    save_comparison(
+                    cid = save_comparison(
                         question=db_question, 
                         responses=db_results,
                         document_content=eng.full_history,
                         document_name=f"Workflow_Report_{jid[:4]}.md"
                     )
-                    print(f"DEBUG: Workflow {jid} saved to history with full text.")
+                    WORKFLOW_JOBS[jid]["comparison_id"] = cid
+                    print(f"DEBUG: Workflow {jid} saved to history with comparison_id: {cid}")
                 except Exception as db_err:
                     print(f"ERROR: Failed to save workflow to history: {db_err}")
             except Exception as ex:
@@ -1615,6 +1616,43 @@ def get_workflow_status(job_id):
         return jsonify({"error": "Job not found"}), 404
     
     return jsonify(job)
+
+@app.route('/workflow/preview/<job_id>/<int:step_id>')
+def preview_workflow_step(job_id, step_id):
+    """Serve the raw HTML output of a workflow step for browser rendering."""
+    job = WORKFLOW_JOBS.get(job_id)
+    if not job:
+        return "Workflow job not found", 404
+        
+    # Find the specific step result
+    step_result = next((r for r in job['results'] if r['step'] == step_id), None)
+    if not step_result:
+        return f"Step {step_id} not found in workflow results", 404
+        
+    content = step_result['data']['response']
+    
+    # Strip markdown backticks if present
+    if "```html" in content:
+        content = content.split("```html")[1].split("```")[0]
+    elif "```" in content:
+        content = content.split("```")[1].split("```")[0]
+        
+    return render_template_string("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Vantage OS - Live Preview (Step {{step_id}})</title>
+            <style>
+                body { margin: 0; padding: 20px; background: #050505; color: #f0f0f0; font-family: sans-serif; }
+                .preview-banner { background: #d4af37; color: #000; padding: 5px 15px; font-size: 12px; font-weight: bold; margin: -20px -20px 20px -20px; }
+            </style>
+        </head>
+        <body>
+            <div class="preview-banner">VANTAGE OS : PROTOTYPE SANDBOX [JOB: {{job_id}}] [STEP: {{step_id}}]</div>
+            {{ content|safe }}
+        </body>
+        </html>
+    """, content=content, job_id=job_id, step_id=step_id)
 
 @app.route('/interrogate', methods=['POST'])
 def interrogate():

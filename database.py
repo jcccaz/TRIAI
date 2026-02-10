@@ -629,6 +629,60 @@ def get_dashboard_telemetry() -> Dict:
                 "message": "System nominal. No events detected."
             })
 
+        # 6. Model Leaderboard (Based on individual ratings)
+        model_leaderboard = {}
+        ratings_q = db.query(
+            Response.ai_provider,
+            func.avg(Response.individual_rating).label('avg_rating'),
+            func.count(Response.individual_rating).label('rated_count')
+        ).filter(
+            Response.individual_rating.isnot(None)
+        ).group_by(Response.ai_provider).all()
+
+        for provider, avg_rating, rated_count in ratings_q:
+            p_key = provider.lower() if provider else 'unknown'
+            if 'openai' in p_key or 'gpt' in p_key: p_key = 'openai'
+            elif 'anthropic' in p_key or 'claude' in p_key: p_key = 'anthropic'
+            elif 'google' in p_key or 'gemini' in p_key: p_key = 'google'
+            elif 'perplexity' in p_key: p_key = 'perplexity'
+
+            model_leaderboard[p_key] = {
+                "avg_rating": round(float(avg_rating), 2) if avg_rating else 0,
+                "rated_count": rated_count
+            }
+
+        # 7. Cost by Provider (7-day breakdown)
+        cost_by_provider = {"openai": 0.0, "anthropic": 0.0, "google": 0.0, "perplexity": 0.0}
+        for q, provider, text in responses_7d_q:
+            pk = provider.lower() if provider else 'unknown'
+            if 'openai' in pk or 'gpt' in pk: pk = 'openai'
+            elif 'anthropic' in pk or 'claude' in pk: pk = 'anthropic'
+            elif 'google' in pk or 'gemini' in pk: pk = 'google'
+            elif 'perplexity' in pk: pk = 'perplexity'
+
+            if pk in pricing:
+                c = pricing[pk]
+                cost = (len(q or "") * 0.25 / 1_000_000 * c["input"]) + \
+                       (len(text or "") * 0.25 / 1_000_000 * c["output"])
+                cost_by_provider[pk] = cost_by_provider.get(pk, 0) + cost
+
+        # Round costs
+        for k in cost_by_provider:
+            cost_by_provider[k] = round(cost_by_provider[k], 3)
+
+        # 8. Query Categories (from feedback)
+        category_counts = {}
+        categories_q = db.query(
+            QueryFeedback.query_category,
+            func.count(QueryFeedback.id).label('count')
+        ).filter(
+            QueryFeedback.query_category.isnot(None)
+        ).group_by(QueryFeedback.query_category).all()
+
+        for cat, count in categories_q:
+            if cat:
+                category_counts[cat] = count
+
         return {
             "status": "nominal",
             "posture": {
@@ -648,7 +702,10 @@ def get_dashboard_telemetry() -> Dict:
                 "railway_uptime": "99.9%",
                 "postgres_rows": f"{db.query(Response).count()}",
                 "aws_status": "Stopped"
-            }
+            },
+            "model_leaderboard": model_leaderboard,
+            "cost_by_provider": cost_by_provider,
+            "query_categories": category_counts
         }
     except Exception as e:
         print(f"Telemetry Error: {e}")
