@@ -678,11 +678,11 @@ The user has uploaded an image. Your PRIMARY MANDATE is to analyze this specific
         prompt_with_reasoning += "\n" + get_visual_mandate(visual_profile)
     
     # 2026 ERA MODELS - Use exact version IDs to avoid "-latest" suffix issues
-    # Simple model names for v1beta API compatibility
+    # Feb 2026: Gemini 1.5 retired, using current stable models
     models_to_try = [
-        'gemini-2.0-flash',   # Try 2.0 first (if quota allows)
-        'gemini-1.5-flash',   # Stable fallback
-        'gemini-1.5-pro'      # High-quality fallback
+        'gemini-3.0-flash',      # Current fast model
+        'gemini-2.5-pro',        # High-reasoning fallback
+        'gemini-pro-latest'      # Automatic latest stable
     ]
     
     
