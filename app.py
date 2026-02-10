@@ -1213,30 +1213,37 @@ def ask_all_ais():
     council_mode = request.json.get('council_mode') if request.is_json else (request.form.get('council_mode') == 'true')
 
     results_map = {"openai": r1, "anthropic": r2, "google": r3, "perplexity": r4}
-    consensus = generate_consensus(question, results_map, podcast_mode=podcast_mode, council_mode=council_mode)
-    
+
+    # Skip consensus in council mode to reduce response time (4 advisors is enough)
+    # User can re-enable by setting skip_consensus=false
+    skip_consensus = request.json.get('skip_consensus', council_mode) if request.is_json else council_mode
+    if skip_consensus:
+        consensus = "Council Mode: Review individual advisor responses above." if council_mode else None
+    else:
+        consensus = generate_consensus(question, results_map, podcast_mode=podcast_mode, council_mode=council_mode)
+
     try:
         cid = save_comparison(question, results_map)
     except:
         cid = None
 
-    # Save to Project if specified
+    # Save to Project in background (non-blocking)
     if project_name:
-        try:
-            print(f"DEBUG: Saving to project '{project_name}'")
-            # Extract simple text from simplified results for storage to save space
-            simple_results = {}
-            for k, v in results_map.items():
-                simple_results[k] = v.get('response', '')[:2000] + "..." # Truncate for history
+        def bg_save_project():
+            try:
+                simple_results = {k: v.get('response', '')[:2000] + "..." for k, v in results_map.items()}
+                project_manager.save_interaction(project_name, question, simple_results, consensus)
+            except Exception as e:
+                print(f"ERROR: Failed to save to project: {e}")
+        threading.Thread(target=bg_save_project, daemon=True).start()
 
-            project_manager.save_interaction(project_name, question, simple_results, consensus)
-        except Exception as e:
-            print(f"ERROR: Failed to save to project: {e}")
-
-    # Send ntfy notification that query is complete
-    username = request.authorization.username if request.authorization else 'User'
-    active_count = len([m for m in active_models if results_map.get(m, {}).get('success')])
-    send_query_complete_notification(username, question, active_count)
+    # Send ntfy notification in background (non-blocking)
+    try:
+        username = request.authorization.username if request.authorization else 'User'
+        active_count = len([m for m in active_models if results_map.get(m, {}).get('success')])
+        threading.Thread(target=send_query_complete_notification, args=(username, question, active_count), daemon=True).start()
+    except:
+        pass
 
     return jsonify({
         "results": results_map,
