@@ -63,8 +63,11 @@ ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', 'your-anthropic-key-here')
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'your-google-key-here')
 PERPLEXITY_API_KEY = os.getenv('PERPLEXITY_API_KEY', 'your-perplexity-key-here')
 
-anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-google_client = genai.Client(api_key=GOOGLE_API_KEY)
+anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY, timeout=90.0)
+google_client = genai.Client(
+    api_key=GOOGLE_API_KEY,
+    http_options={'timeout': 90}  # 90 second timeout to prevent hanging
+)
 
 # Initialize Project Manager
 project_manager = ProjectManager()
@@ -351,10 +354,10 @@ def generate_visual_mockup(prompt, role='general'):
 def query_openai(question, image_data=None, **kwargs):
     """Query OpenAI (Display: GPT-5.2) with DALL-E 3 Support"""
     start_time = time.time()
-    
+
     # 2. Standard Chat Completion
     try:
-        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        client = openai.OpenAI(api_key=OPENAI_API_KEY, timeout=90.0)
         
         # DEFAULT PROMPT: Self-Selecting Expert
         system_prompt = """You are an ELITE ADVISOR. 
@@ -1001,11 +1004,12 @@ def generate_consensus(question, results, podcast_mode=False, council_mode=False
             ✅ **CONSENSUS** (Agreeing models): [Summary]
             ⚠️ **DIVERGENCE**: [Unique points per model]
             """
-        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        client = openai.OpenAI(api_key=OPENAI_API_KEY, timeout=60.0)
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=500
+            max_tokens=500,
+            timeout=60.0
         )
         return response.choices[0].message.content
     except Exception as e:
