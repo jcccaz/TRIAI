@@ -819,6 +819,9 @@ async function handleAskAllAIs(forcedVisualize = false) {
         if (data.consensus) {
             consensusContent.innerHTML = formatMarkdown(data.consensus);
             consensusSection.classList.remove('hidden');
+
+            // 🚀 Background Voice Pre-Generation for Instant Playback
+            pregenerateConsensusVoice(data.consensus);
         }
 
         // Show results
@@ -2409,6 +2412,49 @@ let podcastQueue = [];
 let isPodcastPlaying = false;
 let availableVoices = [];
 
+// 🚀 Voice Pre-generation System
+let pregeneratedVoicePath = null;
+let pregeneratedVoiceText = null;
+let isPregeneratingVoice = false;
+
+function pregenerateConsensusVoice(consensusText) {
+    // Reset cache
+    pregeneratedVoicePath = null;
+    pregeneratedVoiceText = consensusText;
+    isPregeneratingVoice = true;
+
+    console.log("🔊 Pre-generating Cassandra voice in background...");
+
+    fetch('/api/voice/gen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: consensusText })
+    })
+        .then(async response => {
+            if (!response.ok) throw new Error(`Status ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            isPregeneratingVoice = false;
+            if (data.success && data.path) {
+                pregeneratedVoicePath = data.path;
+                console.log("✅ Voice pre-generated and ready:", data.path);
+
+                // Update button to show voice is ready
+                if (listenBtn) {
+                    listenBtn.innerHTML = '<span class="icon">🔊</span> Listen <span style="font-size:10px;opacity:0.7">(Ready)</span>';
+                }
+            } else {
+                console.warn("⚠️ Pre-generation failed:", data.error);
+            }
+        })
+        .catch(err => {
+            isPregeneratingVoice = false;
+            console.warn("⚠️ Pre-generation error:", err);
+        });
+}
+
+
 // Ensure voices are loaded
 function loadVoices() {
     availableVoices = speechSynth.getVoices();
@@ -2450,8 +2496,55 @@ function toggleSpeech() {
 }
 
 function playNormal(text) {
+    // Prevent duplicate API calls
+    if (window.isGeneratingVoice) {
+        console.log("Voice generation already in progress, ignoring click");
+        return;
+    }
+
+    // 🚀 INSTANT PLAYBACK: Check if voice is already pre-generated
+    if (pregeneratedVoicePath && pregeneratedVoiceText === text) {
+        console.log("⚡ Playing pre-generated voice instantly!");
+        if (currentAudio) currentAudio.pause();
+        currentAudio = new Audio(pregeneratedVoicePath);
+        currentAudio.play();
+        currentAudio.onended = () => updateListenButton(false);
+        updateListenButton(true);
+        return; // Skip API call entirely
+    }
+
+    // Check if still generating in background
+    if (isPregeneratingVoice && pregeneratedVoiceText === text) {
+        console.log("⏳ Voice is almost ready...");
+        listenBtn.innerHTML = '<span class="icon">⏳</span> Almost ready...';
+        // Wait for it to finish (max 3 seconds)
+        let waitCount = 0;
+        const checkInterval = setInterval(() => {
+            waitCount++;
+            if (pregeneratedVoicePath) {
+                clearInterval(checkInterval);
+                playNormal(text); // Retry now that it's ready
+            } else if (waitCount > 30) { // 3 seconds max
+                clearInterval(checkInterval);
+                console.warn("Pre-generation taking too long, generating fresh");
+                generateFreshVoice(text); // Fallback to fresh generation
+            }
+        }, 100);
+        return;
+    }
+
+    // No pre-generated voice available, generate fresh
+    console.log("Generating voice on-demand (not pre-generated)");
+    generateFreshVoice(text);
+}
+
+function generateFreshVoice(text) {
     // try ElevenLabs first (Cassandra Persona)
     console.log("Oracle Voice Synthesis Requested...");
+
+    // Lock the button
+    window.isGeneratingVoice = true;
+    listenBtn.disabled = true;
 
     // UI Feedback
     listenBtn.innerHTML = '<span class="icon">⌛</span> Waking Cassandra...';
@@ -2470,6 +2563,10 @@ function playNormal(text) {
             return response.json();
         })
         .then(data => {
+            // Unlock button
+            window.isGeneratingVoice = false;
+            listenBtn.disabled = false;
+
             if (data.success && data.path) {
                 console.log("Oracle Voice Received:", data.path);
                 if (currentAudio) currentAudio.pause();
@@ -2487,6 +2584,10 @@ function playNormal(text) {
             }
         })
         .catch(err => {
+            // Unlock button on error
+            window.isGeneratingVoice = false;
+            listenBtn.disabled = false;
+
             console.error("ElevenLabs API Connection Error:", err);
             listenBtn.innerHTML = '<span class="icon">⚠️</span> Connection Failed';
             fallbackToBrowserTTS(text);
