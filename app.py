@@ -64,10 +64,7 @@ GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'your-google-key-here')
 PERPLEXITY_API_KEY = os.getenv('PERPLEXITY_API_KEY', 'your-perplexity-key-here')
 
 anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY, timeout=90.0)
-google_client = genai.Client(
-    api_key=GOOGLE_API_KEY,
-    http_options={'timeout': 90}  # 90 second timeout to prevent hanging
-)
+google_client = genai.Client(api_key=GOOGLE_API_KEY)
 
 # Initialize Project Manager
 project_manager = ProjectManager()
