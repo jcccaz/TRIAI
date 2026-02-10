@@ -71,7 +71,22 @@ project_manager = ProjectManager()
 enforcement_engine = EnforcementEngine()
 
 # Background Workflow Store
-WORKFLOW_JOBS = {} # { job_id: { status: str, results: list, engine: Workflow, error: str } }
+WORKFLOW_JOBS = {} # { job_id: { status: str, results: list, engine: Workflow, error: str, created_at: float } }
+WORKFLOW_JOB_TTL = 600  # 10 minutes TTL for completed jobs
+
+def cleanup_old_workflow_jobs():
+    """Remove completed workflow jobs older than TTL to prevent memory leaks"""
+    now = time.time()
+    to_delete = []
+    for job_id, job in WORKFLOW_JOBS.items():
+        if job.get('status') in ('complete', 'failed'):
+            created_at = job.get('created_at', now)
+            if now - created_at > WORKFLOW_JOB_TTL:
+                to_delete.append(job_id)
+    for job_id in to_delete:
+        del WORKFLOW_JOBS[job_id]
+    if to_delete:
+        print(f"[CLEANUP] Removed {len(to_delete)} old workflow jobs")
 
 # Configuration
 # Use environment variable or fallback to local FrankNet path (Windows)
@@ -944,10 +959,10 @@ def generate_consensus(question, results, podcast_mode=False, council_mode=False
             prompt = f"""
             You are the "Chairman of the High Council". You have received input from 4 distinct AI Advisors on the topic: "{question}".
             
-            Advisor 1 (OpenAI): {results['openai']['response'][:5000]}
-            Advisor 2 (Claude): {results['anthropic']['response'][:5000]}
-            Advisor 3 (Gemini): {results['google']['response'][:5000]}
-            Advisor 4 (Perplexity): {results['perplexity']['response'][:5000]}
+            Advisor 1 (OpenAI): {results['openai']['response'][:2000]}
+            Advisor 2 (Claude): {results['anthropic']['response'][:2000]}
+            Advisor 3 (Gemini): {results['google']['response'][:2000]}
+            Advisor 4 (Perplexity): {results['perplexity']['response'][:2000]}
             
             Your Job:
             Synthesize a FINAL EXECUTIVE DECISION. Do not just summarize. 
@@ -963,10 +978,10 @@ def generate_consensus(question, results, podcast_mode=False, council_mode=False
             Create a lively "Deep Dive" podcast script between two hosts (Host A and Host B) summarizing these findings.
             
             Source Material:
-            1. GPT: {results['openai']['response'][:5000]}
-            2. Claude: {results['anthropic']['response'][:5000]}
-            3. Gemini: {results['google']['response'][:5000]}
-            4. Perplexity: {results['perplexity']['response'][:5000]}
+            1. GPT: {results['openai']['response'][:2000]}
+            2. Claude: {results['anthropic']['response'][:2000]}
+            3. Gemini: {results['google']['response'][:2000]}
+            4. Perplexity: {results['perplexity']['response'][:2000]}
             
             Format:
             **Host A**: [Text]
@@ -977,10 +992,10 @@ def generate_consensus(question, results, podcast_mode=False, council_mode=False
         else:
             prompt = f"""
             Analyze these 4 AI responses to: "{question}"
-            1. GPT: {results['openai']['response'][:5000]}
-            2. Claude: {results['anthropic']['response'][:5000]}
-            3. Gemini: {results['google']['response'][:5000]}
-            4. Perplexity: {results['perplexity']['response'][:5000]}
+            1. GPT: {results['openai']['response'][:2000]}
+            2. Claude: {results['anthropic']['response'][:2000]}
+            3. Gemini: {results['google']['response'][:2000]}
+            4. Perplexity: {results['perplexity']['response'][:2000]}
             
             Provide summary:
             ✅ **CONSENSUS** (Agreeing models): [Summary]
@@ -1048,9 +1063,8 @@ def ask_all_ais():
     # Handle Smart Project Context
     if project_name:
         try:
-            # Re-instantiate if needed or use global if available. Use local instance for safety.
-            pm = ProjectManager() 
-            history = pm.load_project_history(project_name)
+            # Use global project_manager instance to avoid memory overhead
+            history = project_manager.load_project_history(project_name)
             if history and "conversation" in history:
                 # Get last 3 turns
                 recent_turns = history["conversation"][-3:]
@@ -1521,12 +1535,16 @@ def run_workflow():
         template = WORKFLOW_TEMPLATES[workflow_id]
         engine = Workflow(name=template['name'], steps=template['steps'])
         
+        # Cleanup old jobs before creating new one
+        cleanup_old_workflow_jobs()
+
         job_id = str(uuid.uuid4())
         WORKFLOW_JOBS[job_id] = {
             "status": "running",
             "results": [],
             "error": None,
-            "template_name": template['name']
+            "template_name": template['name'],
+            "created_at": time.time()
         }
         
         # MISSION HEARTBEAT
