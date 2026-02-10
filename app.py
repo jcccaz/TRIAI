@@ -16,6 +16,16 @@ import threading
 import uuid
 import openai
 import anthropic
+
+# GOOGLE IPv4 FIX: Force IPv4 to prevent IPv6 socket hangs on Gemini endpoints
+# This MUST be done before importing genai
+import socket
+_old_getaddrinfo = socket.getaddrinfo
+def _ipv4_only_getaddrinfo(*args, **kwargs):
+    responses = _old_getaddrinfo(*args, **kwargs)
+    return [r for r in responses if r[0] == socket.AF_INET]
+socket.getaddrinfo = _ipv4_only_getaddrinfo
+
 # NEW SUPPORTED SDK (google-generativeai reached EOL Nov 30, 2025)
 from google import genai 
 import requests
