@@ -166,7 +166,7 @@ def generate_mermaid_viz(concept, profile='data-viz'):
             return None
             
         response = google_client.models.generate_content(
-            model="gemini-3.0-flash",  # Feb 2026 current model
+            model="gemini-2.5-flash",  # Feb 2026 primary model
             contents=prompt
         )
         
