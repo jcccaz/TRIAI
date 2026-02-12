@@ -49,11 +49,17 @@ Run complex, multi-step agentic pipelines that force models to collaborate:
 ### 6. **Mission Control Dashboard** 🎛️
 Real-time telemetry and operational awareness:
 - **Live KPI Cards**: Monitor prompts, costs, and system uptime.
-- **Dynamic Usage Grid**: Heatmap of "Persona × Model" utilization to identify best-performing AI roles.
-- **Voice Alerts**: "System Nominal" audio cues via ElevenLabs integration.
+- **Dynamic Usage Grid**: Heatmap of "Persona × Model" utilization.
 - **Visual Fabrication Engine**: Generate charts/graphs directly from data.
 
-### 7. **Multi-Modal Support** 📎
+### 7. **KORUM-OS Interface (v2.0)** 🔮
+A dedicated **Decision Intelligence Command Center** featuring:
+- **"Void & Key" Glassmorphism**: Premium dark-mode aesthetic for focused strategic work.
+- **Neural Telemetry Feed**: Live visualization of AI thought processes and system heartbeats.
+- **Interrogation Protocol**: Highlight any text to instantly "Challenge" or "Visualize" specific claims.
+- **Access**: Navigate to `/korum` to enter the Command Center.
+
+### 8. **Multi-Modal Support** 📎
 - Upload PDFs, images, text files
 - AI analyzes document content
 - Image-based queries supported

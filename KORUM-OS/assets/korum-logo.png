@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="KORUM emblem">
+  <defs>
+    <linearGradient id="g1" x1="0" x2="1">
+      <stop offset="0" stop-color="#d4af37"/>
+      <stop offset="1" stop-color="#6b3f25"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="b" />
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="200" height="200" rx="28" fill="url(#g1)" />
+  <g transform="translate(30,28) scale(0.7)" filter="url(#glow)">
+    <path d="M70 10 L130 10 L100 80 Z" fill="#fff" opacity="0.06"/>
+    <path d="M30 140 L100 20 L170 140 Z" fill="none" stroke="#ffffff" stroke-width="10" stroke-linejoin="round" stroke-linecap="round" opacity="0.12"/>
+    <path d="M70 30 L110 90 L90 90 L130 150 L70 30 Z" fill="#fff" opacity="0.18"/>
+  </g>
+</svg>

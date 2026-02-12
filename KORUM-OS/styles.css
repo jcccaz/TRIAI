@@ -1,0 +1,36 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at center, #0f1720, #05070a);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: system-ui, sans-serif;
+}
+
+#portal {
+  transition: transform 0.8s ease-in-out, opacity 0.8s ease-in-out;
+}
+
+#sigil {
+  width: 320px;
+  max-width: 80vw;
+  cursor: pointer;
+  transition: transform 0.3s ease, filter 0.3s ease;
+  filter: drop-shadow(0 0 40px rgba(80,140,255,0.35));
+}
+
+#sigil:hover {
+  transform: scale(1.05);
+  filter: drop-shadow(0 0 60px rgba(120,180,255,0.6));
+}
+
+.zoom {
+  transform: scale(8);
+  opacity: 0;
+}

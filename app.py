@@ -41,6 +41,9 @@ from visuals import visuals_bp, get_style_for_role, fabricate_and_persist_visual
 from deployment_platforms import PLATFORMS
 from enforcement import EnforcementEngine
 from feedback_analyzer import analyze_feedback_text
+from orchestrator import KorumOrchestrator
+
+korum_orchestrator = KorumOrchestrator()
 
 app = Flask(__name__)
 # Basic Auth Configuration
@@ -971,7 +974,16 @@ def index():
     # Sort roles alphabetically by display name for easier navigation
     sorted_roles = dict(sorted(COUNCIL_ROLES.items(), key=lambda x: x[1]['name'].lower()))
 
-    return render_template('index.html', roles=sorted_roles, defaults=DEFAULT_ASSIGNMENTS)
+    # Detect mobile user agent
+    user_agent = request.headers.get('User-Agent', '').lower()
+    is_mobile = 'mobile' in user_agent or 'android' in user_agent or 'iphone' in user_agent
+
+    return render_template('index.html', roles=sorted_roles, defaults=DEFAULT_ASSIGNMENTS, is_mobile=is_mobile)
+
+@app.route('/korum')
+def korum():
+    """Serve the new KORUM-OS Interface"""
+    return render_template('korum.html')
 
 def generate_consensus(question, results, podcast_mode=False, council_mode=False):
     """Generate consensus using GPT-4o"""
@@ -1032,6 +1044,33 @@ def generate_consensus(question, results, podcast_mode=False, council_mode=False
         return response.choices[0].message.content
     except Exception as e:
         return f"Consensus Error: {str(e)}"
+
+@app.route('/api/v2/reasoning_chain', methods=['POST'])
+def run_reasoning_chain():
+    """
+    V2 ENDPOINT: Runs the Functional Reasoning Pipeline (Layers 1-4).
+    Replaces the Persona Council with the Cognitive Stack.
+    """
+    try:
+        data = request.json
+        user_query = data.get('query')
+        depth = data.get('depth', 'standard')
+        
+        if not user_query:
+            return jsonify({"success": False, "error": "Query required"}), 400
+            
+        # Execute the full pipeline synchronously (for now)
+        # TODO: Move to async/background task if it takes >30s
+        result = korum_orchestrator.execute_pipeline(user_query, depth)
+        
+        return jsonify({
+            "success": True,
+            "pipeline_result": result
+        })
+        
+    except Exception as e:
+        print(f"V2 Pipeline Error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/ask', methods=['POST'])
 def ask_all_ais():
@@ -1940,6 +1979,22 @@ def generate_voice_route():
     if path:
         return jsonify({"success": True, "path": path})
     return jsonify({"success": False, "error": error or "Generation failed"})
+
+@app.route('/api/v2/reasoning_chain', methods=['POST'])
+def reasoning_chain():
+    data = request.json
+    query = data.get('query')
+    hacker_mode = data.get('hacker_mode', False)
+    
+    if not query:
+        return jsonify({"success": False, "error": "No query provided"})
+
+    try:
+        # Pass Hacker Mode Flag
+        result = orchestrator.execute_pipeline(query, hacker_mode=hacker_mode)
+        return jsonify({"success": True, "pipeline_result": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
    
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    app.run(debug=True, port=5002)

@@ -1,65 +1,68 @@
-# ✅ TriAI Compare - PROJECT STATUS (Shark Update 🦈)
+# ✅ TriAI Compare - PROJECT STATUS (KORUM-OS v2.0 Update 🔮)
 
-## 🎉 **SYSTEM STATUS: COMBAT READY**
+## 🎉 **SYSTEM STATUS: COMMAND CENTER LIVE**
 
-Your multi-AI Council is fully operational, featuring **Corporate Shark Mode**, **War Room Protocols**, and **Anti-Sandbagging Defense Systems**.
+The **KORUM-OS Interface** has been upgraded to **v2.0**, introducing a "Void & Key" aesthetic, live neural telemetry, and active interrogation protocols.
+
+---
+
+## 🔮 **KORUM-OS v2.0 Features**
+
+### 1. **Visual Overhaul ("Void & Key")** 🌑
+- **Shiny Glass Aesthetics**: Premium glassmorphism with shimmering gradients on logo and panels.
+- **Deep Space Sphere**: A 3D central node with expanded depth and isolation for better visual hierarchy.
+- **Wide Command Console**: Left panel expanded to **480px** for strategic input dominance.
+
+### 2. **Neural Telemetry Feed** 📡
+- **Live System Status**: Real-time log of AI thought processes (green/orange/blue/gold).
+- **Heartbeat Monitor**: Visual confirmation of system latency and link stability.
+- **Dynamic Feedback**: "Council Convening" animations and lightning effects on active nodes.
+
+### 3. **Interrogation Protocol** 🔦
+- **Highlight-to-Challenge**: Select any text in an AI response to trigger immediate action.
+- **"CHALLENGE" Button**: Instantly spawns a counter-Council session to debate the specific claim.
+- **"VISUALIZE" Button**: Converts selected text into a Mermaid.js chart or diagram.
+
+### 4. **Stability & Performance** 🛡️
+- **IPv4 Network Fix**: Resolved socket hang issues with Google Gemini.
+- **Robust Error Handling**: UI no longer freezes on backend errors; displays clear "System Failure" cards.
 
 ---
 
 ## 🤖 **Current Council Configuration**
 
-### 1. **OpenAI - GPT-5.2** (The Critic)
-- **Role**: Devil's Advocate / Visionary
-- **Status**: ✅ **UNLEASHED**
-- **Specialty**: Fragility detection and logic-bomb audits.
+### 1. **OpenAI - GPT-5.2** (The Strategist)
+- **Role**: Visionary / Strategic Core
+- **Status**: ✅ **ONLINE**
 
 ### 2. **Anthropic - Claude 4.5 Sonnet** (The Architect)
-- **Role**: Liquidator / Systems Architect
-- **Status**: ✅ **ACTIVE**
-- **Specialty**: Deep structural design and ruthless cost/benefit analysis.
+- **Role**: Systems Architect / Structural integrity
+- **Status**: ✅ **ONLINE**
 
-### 3. **Google - Gemini 3.0 Pro** (The Shark)
-- **Role**: Corporate Shark / System Optimizer
-- **Status**: ✅ **ACTIVE**
-- **Specialty**: O(n) reduction, competitive neutralization, and leverage.
+### 3. **Google - Gemini 3.0 Pro** (The Shark/Critic)
+- **Role**: Corporate Critic / Optimization
+- **Status**: ✅ **ONLINE**
 
 ### 4. **Perplexity - Sonar Pro** (The Scout)
-- **Role**: Crisis Manager / Researcher
+- **Role**: Intel / Research
 - **Status**: ✅ **ONLINE**
-- **Specialty**: Real-time forensic research and execution timelines.
-
----
-
-## 🚀 **New Capabilities**
-
-### 1. **Council Mode & Roles** 🏛️
-- Assign specific personas (e.g., "Liquidator", "Ethicist") to models.
-- **War Room Protocol:** A dedicated workflow for high-intensity crisis management.
-
-### 2. **Anti-Sandbagging Defense** 🛡️
-- **Red Alert (Critical):** Detects generic refusals or safety-cushioning.
-- **Yellow Alert (Warning):** Detects thought-to-output imbalances (thinking deep, speaking shallow).
-
-### 3. **Visual & Interaction** 🎨
-- **"Gold Noir" Aesthetic:** Premium digital brutalist design.
-- **Dynamic Backgrounds:** Reacts to processing state.
-- **History & Database:** Full SQLite logging of all Council sessions.
 
 ---
 
 ## 📂 **Key Files**
-- `app.py`: Logic Core.
-- `council_roles.py`: The Persona Registry (Shark, Liquidator, etc.).
-- `workflows.py`: Execution Protocols (War Room, Marketing, etc.).
-- `comparisons.db`: The Digital Archive.
+- `app.py`: Backend Logic (Flask + Multi-Model Threading).
+- `static/korum.js`: Frontend Logic (Telemetry, Interrogation, Mermaid).
+- `static/korum.css`: "Void & Key" Stylesheet.
+- `templates/korum.html`: Command Center Interface.
 
 ---
 
 ## 🔮 **Next Objectives**
-1. **Document Analysis:** Upload PDFs for forensic review.
-2. **Visual Refinement:** Ensure diagram generation fidelity.
+1. **User Adjustments**: Fine-tune UI based on specific user feedback (TBD).
+2. **Mermaid Chart Polish**: Ensure complex charts render perfectly in the new dark theme.
+3. **Deployment**: Verify KORUM-OS v2.0 on Railway/Cloud.
 
 ---
 
-**Built:** February 4, 2026
-**Status:** DEPLOYED 🚀
+**Last Update:** February 11, 2026
+**Status:** STABLE & DEPLOYED 🚀

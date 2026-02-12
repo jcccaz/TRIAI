@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KORUM-OS | Decision Intelligence</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts for that clean, technical look -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="screen-container">
+        <!-- Top Navigation Bar -->
+        <nav class="top-bar">
+            <div class="logo">Korum</div>
+            <div class="nav-links">
+                <a href="#" class="active">Web</a>
+                <a href="#">Dual-Core</a>
+                <a href="#">Control</a>
+                <a href="#">Analytics</a>
+                <a href="#">Store</a>
+            </div>
+            <div class="nav-right">
+                <div class="menu-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Dashboard Area -->
+        <main class="dashboard-grid">
+            
+            <!-- Left Panel: Input & Controls -->
+            <section class="panel left-panel">
+                <div class="panel-header">
+                    <h1>Decision Intelligence</h1>
+                    <p class="subtitle">Autonomous analysis engine ready.</p>
+                </div>
+
+                <div class="control-stack">
+                    <p class="description">
+                        System authorized to intercept and analyze data streams. 
+                        Select protocol to initiate forensic scan.
+                    </p>
+
+                    <div class="action-buttons">
+                        <button class="glass-btn">
+                            <span class="btn-text">Protocol Alpha</span>
+                            <div class="btn-indicator"></div>
+                        </button>
+                        <button class="glass-btn">
+                            <span class="btn-text">System Diagnostics</span>
+                            <div class="btn-indicator"></div>
+                        </button>
+                        <button class="glass-btn">
+                            <span class="btn-text">Executive Override</span>
+                            <div class="btn-indicator"></div>
+                        </button>
+                    </div>
+
+                    <div class="input-area">
+                        <input type="text" placeholder="Enter command parameter..." class="glass-input">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Center Panel: The Core Visualization -->
+            <section class="panel center-panel">
+                <div class="viz-container">
+                    <!-- This is where the 3D Globe/Sphere goes. 
+                         Using a CSS/SVG placeholder for now that mimics the look. -->
+                    <div class="central-sphere-rig">
+                        <div class="orbital-ring ring-1"></div>
+                        <div class="orbital-ring ring-2"></div>
+                        <div class="core-sphere"></div>
+                        <div class="data-point p1"></div>
+                        <div class="data-point p2"></div>
+                        <div class="data-point p3"></div>
+                    </div>
+                </div>
+                
+                <div class="viz-status">
+                    <span>Awaiting Input</span>
+                    <div class="pulse-dot"></div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Data & Calculations -->
+            <section class="panel right-panel">
+                <div class="panel-header">
+                    <h2>Calculation</h2>
+                    <div class="icon-arrow">→</div>
+                </div>
+
+                <div class="data-block">
+                    <div class="data-row">
+                        <span class="label">Latency</span>
+                        <span class="value">12ms</span>
+                    </div>
+                    <div class="data-graph-mini">
+                        <svg viewBox="0 0 100 20">
+                            <path d="M0,10 Q25,5 50,15 T100,10" fill="none" stroke="currentColor" stroke-width="1.5"></path>
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="data-block">
+                    <div class="data-row">
+                        <span class="label">Confidence</span>
+                        <span class="value">98.4%</span>
+                    </div>
+                    <div class="geometric-schematic">
+                        <!-- Simple geometric SVG mimicking the diagram in the image -->
+                        <svg viewBox="0 0 100 60">
+                            <circle cx="50" cy="30" r="20" fill="none" stroke="currentColor" stroke-width="1"></circle>
+                            <line x1="30" y1="30" x2="70" y2="30" stroke="currentColor" stroke-width="1"></line>
+                            <line x1="50" y1="10" x2="50" y2="50" stroke="currentColor" stroke-width="1"></line>
+                            <circle cx="50" cy="30" r="4" fill="currentColor"></circle>
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="knob-control">
+                    <div class="knob-circle">
+                        <div class="knob-tick"></div>
+                    </div>
+                    <span class="knob-label">Gain</span>
+                </div>
+
+            </section>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
